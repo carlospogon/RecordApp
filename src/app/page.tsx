@@ -15,10 +15,10 @@ export default function HomePage() {
           <div className="flex flex-wrap gap-3 text-sm text-slate">
             <InstallAppButton />
             <Link href="/app" className="rounded-full border border-white/10 px-4 py-2 transition hover:border-lime hover:text-lime">
-              Panel MVP
+              Empecemos
             </Link>
-            <Link href="/docs" className="rounded-full border border-white/10 px-4 py-2 transition hover:border-lime hover:text-lime">
-              Arquitectura
+            <Link href="/auth" className="rounded-full border border-white/10 px-4 py-2 transition hover:border-lime hover:text-lime">
+              Iniciar sesion
             </Link>
           </div>
         </header>
