@@ -1,0 +1,9 @@
+.next
+node_modules
+.env
+.env.local
+*.log
+coverage
+client_secret_*.json
+*.local
+Captura de pantalla*.png
