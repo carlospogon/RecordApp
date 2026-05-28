@@ -17,19 +17,27 @@ function urlBase64ToUint8Array(base64String: string) {
 
 export function PushRemindersButton({ publicKey }: { publicKey?: string }) {
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function handleSubscribe() {
     if (!publicKey || !("serviceWorker" in navigator) || !("PushManager" in window)) {
       setStatus("error");
+      setErrorMessage(!publicKey ? "Falta la clave publica VAPID en este despliegue." : "Este navegador no soporta notificaciones push.");
       return;
     }
 
     try {
       setStatus("loading");
+      setErrorMessage(null);
       const permission = await Notification.requestPermission();
 
       if (permission !== "granted") {
         setStatus("error");
+        setErrorMessage(
+          permission === "denied"
+            ? "Has bloqueado las notificaciones para esta web."
+            : "No se concedio permiso para mostrar notificaciones."
+        );
         return;
       }
 
@@ -42,15 +50,21 @@ export function PushRemindersButton({ publicKey }: { publicKey?: string }) {
           applicationServerKey: urlBase64ToUint8Array(publicKey)
         }));
 
-      await fetch("/api/push/subscribe", {
+      const response = await fetch("/api/push/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(subscription)
       });
 
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error || "No se pudo guardar la suscripcion push.");
+      }
+
       setStatus("done");
-    } catch {
+    } catch (error) {
       setStatus("error");
+      setErrorMessage(error instanceof Error ? error.message : "No hemos podido registrar este dispositivo para recibir recordatorios push.");
     }
   }
 
@@ -64,7 +78,7 @@ export function PushRemindersButton({ publicKey }: { publicKey?: string }) {
       >
         {status === "loading" ? "Activando..." : status === "done" ? "Push activada" : "Activar notificaciones"}
       </button>
-      {status === "error" ? <p className="text-xs text-[#b44d4d]">No hemos podido activar las notificaciones todavia.</p> : null}
+      {status === "error" && errorMessage ? <p className="text-xs text-[#b44d4d]">{errorMessage}</p> : null}
     </div>
   );
 }
