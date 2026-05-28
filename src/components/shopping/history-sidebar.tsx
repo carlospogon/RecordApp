@@ -3,10 +3,8 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useState, useTransition } from "react";
 import {
-  deleteListAction,
-  deleteListsAction,
   quickAddReminderItemAction,
   updateCatalogProductAction,
   type ActionState
@@ -434,14 +432,17 @@ export function ProductCatalogPanel({ catalogProducts }: { catalogProducts: Prod
 export function ListsPanel({
   lists,
   selectedListId,
-  pageSize = 5
+  pageSize = 5,
+  onDeleteList
 }: {
   lists: ShoppingList[];
   selectedListId?: string | null;
   pageSize?: number;
+  onDeleteList: (listIds: string[]) => Promise<void> | void;
 }) {
   const [page, setPage] = useState(0);
   const [selectedListIds, setSelectedListIds] = useState<string[]>([]);
+  const [pendingDelete, startDeleteTransition] = useTransition();
   const totalPages = Math.max(1, Math.ceil(lists.length / pageSize));
   const safePage = Math.min(page, totalPages - 1);
   const visibleLists = lists.slice(safePage * pageSize, safePage * pageSize + pageSize);
@@ -485,18 +486,22 @@ export function ListsPanel({
               </span>
             </div>
 
-            <form action={deleteListsAction}>
-              {selectedListIds.map((listId) => (
-                <input key={listId} type="hidden" name="listIds" value={listId} />
-              ))}
+            <div>
               <button
-                type="submit"
-                disabled={selectedListIds.length === 0}
+                type="button"
+                disabled={selectedListIds.length === 0 || pendingDelete}
+                onClick={() => {
+                  const idsToDelete = [...selectedListIds];
+                  startDeleteTransition(async () => {
+                    await onDeleteList(idsToDelete);
+                    setSelectedListIds((current) => current.filter((id) => !idsToDelete.includes(id)));
+                  });
+                }}
                 className="rounded-full bg-[#b44d4d] px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-[#973b3b] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Eliminar seleccionadas
+                {pendingDelete ? "Eliminando..." : "Eliminar seleccionadas"}
               </button>
-            </form>
+            </div>
           </div>
 
           <div className="mb-4 rounded-[22px] bg-[var(--surface-soft)] p-4">
@@ -555,15 +560,19 @@ export function ListsPanel({
                       >
                         Abrir
                       </Link>
-                      <form action={deleteListAction}>
-                        <input type="hidden" name="listId" value={list.id} />
-                        <button
-                          type="submit"
-                          className="rounded-full bg-[#b44d4d] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#973b3b]"
-                        >
-                          Eliminar
-                        </button>
-                      </form>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          startDeleteTransition(async () => {
+                            await onDeleteList([list.id]);
+                            setSelectedListIds((current) => current.filter((id) => id !== list.id));
+                          });
+                        }}
+                        disabled={pendingDelete}
+                        className="rounded-full bg-[#b44d4d] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#973b3b] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {pendingDelete ? "Eliminando..." : "Eliminar"}
+                      </button>
                     </div>
                   </div>
                 </article>

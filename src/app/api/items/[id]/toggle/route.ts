@@ -28,11 +28,12 @@ export async function POST(_: Request, context: RouteContext) {
   }
 
   const nextStatus = item.status === "bought" ? "pending" : "bought";
+  const checkedAt = nextStatus === "bought" ? new Date().toISOString() : null;
   const { error: updateError } = await supabase
     .from("shopping_items")
     .update({
       status: nextStatus,
-      checked_at: nextStatus === "bought" ? new Date().toISOString() : null
+      checked_at: checkedAt
     })
     .eq("id", id)
     .eq("user_id", user.id);
@@ -41,5 +42,5 @@ export async function POST(_: Request, context: RouteContext) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ status: nextStatus });
+  return NextResponse.json({ status: nextStatus, checkedAt });
 }

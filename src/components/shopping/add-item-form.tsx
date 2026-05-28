@@ -1,10 +1,19 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
-import { createItemAction, deleteItemAction, type ActionState } from "@/app/app/actions";
-import { ProductCatalogItem } from "@/types/shopping";
+import { useMemo, useState, useTransition } from "react";
+import { ProductCatalogItem, ShoppingDuplicateNotice, ShoppingItem } from "@/types/shopping";
 
-const initialActionState: ActionState = {};
+type AddItemFormProps = {
+  listId: string;
+  catalogProducts: ProductCatalogItem[];
+  onItemCreated?: (item: ShoppingItem) => void;
+  onItemDeleted?: (itemId: string) => void;
+};
+
+type CreateItemResponse = {
+  item: ShoppingItem;
+  duplicateNotice?: ShoppingDuplicateNotice | null;
+};
 
 function formatDate(value?: string) {
   if (!value) {
@@ -18,27 +27,91 @@ function formatDate(value?: string) {
   }).format(new Date(value));
 }
 
-export function AddItemForm({
-  listId,
-  catalogProducts
-}: {
-  listId: string;
-  catalogProducts: ProductCatalogItem[];
-}) {
-  const [state, formAction, pending] = useActionState(createItemAction, initialActionState);
+export function AddItemForm({ listId, catalogProducts, onItemCreated, onItemDeleted }: AddItemFormProps) {
+  const [pending, startTransition] = useTransition();
   const availableProducts = useMemo(() => catalogProducts.filter((product) => product.active !== false), [catalogProducts]);
   const [name, setName] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [unit, setUnit] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [duplicateNotice, setDuplicateNotice] = useState<ShoppingDuplicateNotice | null>(null);
+  const [createdItemId, setCreatedItemId] = useState<string | null>(null);
   const selectedProduct = useMemo(
     () => availableProducts.find((product) => product.name.toLowerCase() === name.trim().toLowerCase()),
     [availableProducts, name]
   );
 
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    startTransition(async () => {
+      try {
+        const response = await fetch("/api/items", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            listId,
+            productId: selectedProduct?.id ?? "",
+            name,
+            quantity,
+            unit: unit || selectedProduct?.defaultUnit || ""
+          })
+        });
+
+        const payload = (await response.json()) as Partial<CreateItemResponse> & { error?: string };
+
+        if (!response.ok || !payload.item) {
+          throw new Error(payload.error || "No se pudo guardar el producto.");
+        }
+
+        onItemCreated?.(payload.item);
+        setDuplicateNotice(payload.duplicateNotice ?? null);
+        setCreatedItemId(payload.item.id);
+        setSuccess("Producto anadido.");
+        setName("");
+        setQuantity("");
+        setUnit("");
+      } catch (submitError) {
+        setError(submitError instanceof Error ? submitError.message : "No se pudo guardar el producto.");
+      }
+    });
+  }
+
+  async function handleDeleteFreshItem() {
+    if (!createdItemId) {
+      return;
+    }
+
+    setError(null);
+
+    startTransition(async () => {
+      try {
+        const response = await fetch(`/api/items/${createdItemId}`, {
+          method: "DELETE"
+        });
+
+        if (!response.ok) {
+          throw new Error("No se pudo eliminar el producto.");
+        }
+
+        onItemDeleted?.(createdItemId);
+        setCreatedItemId(null);
+        setDuplicateNotice(null);
+        setSuccess("Producto eliminado.");
+      } catch (deleteError) {
+        setError(deleteError instanceof Error ? deleteError.message : "No se pudo eliminar el producto.");
+      }
+    });
+  }
+
   return (
     <div className="grid gap-4 rounded-[26px] border border-[var(--border)] bg-[var(--surface-soft)] p-5">
-      <form action={formAction} className="grid gap-4">
-        <input type="hidden" name="listId" value={listId} />
-        <input type="hidden" name="productId" value={selectedProduct?.id ?? ""} />
-
+      <form onSubmit={handleSubmit} className="grid gap-4">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Anadir producto</p>
           <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">Rellena la lista activa</h3>
@@ -48,7 +121,6 @@ export function AddItemForm({
           <div className="rounded-[24px] border border-[var(--border)] bg-white p-4 shadow-[0_10px_24px_rgba(18,40,28,0.05)]">
             <input
               type="text"
-              name="name"
               list="recordapp-product-catalog"
               value={name}
               onChange={(event) => setName(event.currentTarget.value)}
@@ -94,22 +166,23 @@ export function AddItemForm({
           <div className="grid gap-3 sm:grid-cols-2">
             <input
               type="text"
-              name="quantity"
+              value={quantity}
+              onChange={(event) => setQuantity(event.currentTarget.value)}
               placeholder="Cantidad"
               className="rounded-[18px] border border-[var(--border)] bg-white px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
             />
             <input
               type="text"
-              name="unit"
-              defaultValue={selectedProduct?.defaultUnit ?? ""}
+              value={unit}
+              onChange={(event) => setUnit(event.currentTarget.value)}
               placeholder="Unidad"
               className="rounded-[18px] border border-[var(--border)] bg-white px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
             />
           </div>
         </div>
 
-        {state.error ? <p className="rounded-2xl bg-[#fff1f1] px-4 py-3 text-sm text-[#b44d4d]">{state.error}</p> : null}
-        {state.success ? <p className="rounded-2xl bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--accent-strong)]">{state.success}</p> : null}
+        {error ? <p className="rounded-2xl bg-[#fff1f1] px-4 py-3 text-sm text-[#b44d4d]">{error}</p> : null}
+        {success ? <p className="rounded-2xl bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--accent-strong)]">{success}</p> : null}
 
         <button
           type="submit"
@@ -120,41 +193,40 @@ export function AddItemForm({
         </button>
       </form>
 
-      {state.duplicateNotice ? (
+      {duplicateNotice ? (
         <div className="rounded-[22px] border border-[#f2d57e] bg-[#fff7dd] px-4 py-4 text-sm leading-6 text-[#7c6320]">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="font-semibold text-[#5a4714]">Ya lo habias comprado antes</p>
             <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#7c6320]">
-              {state.duplicateNotice.appearances} veces
+              {duplicateNotice.appearances} veces
             </span>
           </div>
-          <p className="mt-2">{state.duplicateNotice.message}</p>
+          <p className="mt-2">{duplicateNotice.message}</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             <div className="rounded-2xl bg-white/80 px-3 py-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7440]">Ultima aparicion</p>
-              <p className="mt-1 font-medium text-[#5a4714]">{formatDate(state.duplicateNotice.lastSeenAt)}</p>
+              <p className="mt-1 font-medium text-[#5a4714]">{formatDate(duplicateNotice.lastSeenAt)}</p>
             </div>
             <div className="rounded-2xl bg-white/80 px-3 py-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7440]">Contexto</p>
-              <p className="mt-1 font-medium text-[#5a4714]">{state.duplicateNotice.lastListTitle || "Lista anterior"}</p>
+              <p className="mt-1 font-medium text-[#5a4714]">{duplicateNotice.lastListTitle || "Lista anterior"}</p>
               <p className="mt-1 text-xs text-[#7c6320]">
-                {state.duplicateNotice.lastQuantity ? `${state.duplicateNotice.lastQuantity} ` : ""}
-                {state.duplicateNotice.lastUnit || ""}
-                {state.duplicateNotice.lastStatus === "bought" ? " - marcado como comprado" : ""}
+                {duplicateNotice.lastQuantity ? `${duplicateNotice.lastQuantity} ` : ""}
+                {duplicateNotice.lastUnit || ""}
+                {duplicateNotice.lastStatus === "bought" ? " - marcado como comprado" : ""}
               </p>
             </div>
           </div>
-          {state.createdItemId ? (
+          {createdItemId ? (
             <div className="mt-4">
-              <form action={deleteItemAction}>
-                <input type="hidden" name="itemId" value={state.createdItemId} />
-                <button
-                  type="submit"
-                  className="rounded-full border border-[#e0a7a7] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#b44d4d] transition hover:bg-[#fff4f4]"
-                >
-                  Eliminar producto recien anadido
-                </button>
-              </form>
+              <button
+                type="button"
+                onClick={handleDeleteFreshItem}
+                disabled={pending}
+                className="rounded-full border border-[#e0a7a7] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#b44d4d] transition hover:bg-[#fff4f4] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Eliminar producto recien anadido
+              </button>
             </div>
           ) : null}
         </div>

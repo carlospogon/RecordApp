@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { updateItemAction, type ActionState } from "@/app/app/actions";
 import { ShoppingItem } from "@/types/shopping";
 
@@ -38,6 +37,8 @@ async function toggleItemById(itemId: string) {
   if (!response.ok) {
     throw new Error("No se pudo actualizar el estado.");
   }
+
+  return (await response.json()) as { status: ShoppingItem["status"]; checkedAt: string | null };
 }
 
 function EditItemForm({ item }: { item: ShoppingItem }) {
@@ -95,8 +96,17 @@ function ItemStatusPill({ status }: { status: ShoppingItem["status"] }) {
   );
 }
 
-function ToggleItemCheckbox({ itemId, checked }: { itemId: string; checked: boolean }) {
-  const router = useRouter();
+function ToggleItemCheckbox({
+  itemId,
+  checked,
+  checkedAt,
+  onToggle
+}: {
+  itemId: string;
+  checked: boolean;
+  checkedAt?: string | null;
+  onToggle: (itemId: string, nextStatus: ShoppingItem["status"], nextCheckedAt: string | null) => void;
+}) {
   const [optimisticChecked, setOptimisticChecked] = useState(checked);
   const [pending, startTransition] = useTransition();
 
@@ -117,8 +127,8 @@ function ToggleItemCheckbox({ itemId, checked }: { itemId: string; checked: bool
 
         startTransition(async () => {
           try {
-            await toggleItemById(itemId);
-            router.refresh();
+            const result = await toggleItemById(itemId);
+            onToggle(itemId, result.status, result.checkedAt ?? checkedAt ?? null);
           } catch {
             setOptimisticChecked(!nextChecked);
           }
@@ -139,8 +149,7 @@ function ToggleItemCheckbox({ itemId, checked }: { itemId: string; checked: bool
   );
 }
 
-function DeleteItemButton({ itemId }: { itemId: string }) {
-  const router = useRouter();
+function DeleteItemButton({ itemId, onDelete }: { itemId: string; onDelete: (itemId: string) => void }) {
   const [pending, startTransition] = useTransition();
 
   return (
@@ -150,7 +159,7 @@ function DeleteItemButton({ itemId }: { itemId: string }) {
       onClick={() => {
         startTransition(async () => {
           await deleteItemById(itemId);
-          router.refresh();
+          onDelete(itemId);
         });
       }}
       className="rounded-full border border-[var(--border)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#b44d4d] transition hover:border-[#e0a7a7] hover:bg-[#fff4f4] disabled:cursor-not-allowed disabled:opacity-60"
@@ -160,7 +169,15 @@ function DeleteItemButton({ itemId }: { itemId: string }) {
   );
 }
 
-function ItemCard({ item }: { item: ShoppingItem }) {
+function ItemCard({
+  item,
+  onDelete,
+  onToggle
+}: {
+  item: ShoppingItem;
+  onDelete: (itemId: string) => void;
+  onToggle: (itemId: string, nextStatus: ShoppingItem["status"], nextCheckedAt: string | null) => void;
+}) {
   const [editing, setEditing] = useState(false);
   const bought = item.status === "bought";
   const checkedLabel = formatDateTime(item.checkedAt);
@@ -173,7 +190,7 @@ function ItemCard({ item }: { item: ShoppingItem }) {
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 flex-1 items-start gap-3">
-          <ToggleItemCheckbox itemId={item.id} checked={bought} />
+          <ToggleItemCheckbox itemId={item.id} checked={bought} checkedAt={item.checkedAt} onToggle={onToggle} />
           <div className="min-w-0">
             <p className={`truncate text-base font-semibold ${bought ? "text-[var(--muted)] line-through" : "text-[var(--text)]"}`}>
               {item.name}
@@ -199,7 +216,7 @@ function ItemCard({ item }: { item: ShoppingItem }) {
           >
             {editing ? "Cerrar" : "Editar"}
           </button>
-          <DeleteItemButton itemId={item.id} />
+          <DeleteItemButton itemId={item.id} onDelete={onDelete} />
         </div>
       </div>
 
@@ -212,7 +229,15 @@ function ItemCard({ item }: { item: ShoppingItem }) {
   );
 }
 
-export function ItemsList({ items }: { items: ShoppingItem[] }) {
+export function ItemsList({
+  items,
+  onDelete,
+  onToggle
+}: {
+  items: ShoppingItem[];
+  onDelete: (itemId: string) => void;
+  onToggle: (itemId: string, nextStatus: ShoppingItem["status"], nextCheckedAt: string | null) => void;
+}) {
   if (items.length === 0) {
     return (
       <section className="rounded-[28px] border border-[var(--border)] bg-[var(--surface-soft)] p-6">
@@ -234,9 +259,9 @@ export function ItemsList({ items }: { items: ShoppingItem[] }) {
         <span className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[var(--text)]">{items.length} productos</span>
       </div>
 
-      <div className="mt-5 grid gap-4">
+        <div className="mt-5 grid gap-4">
         {items.map((item) => (
-          <ItemCard key={item.id} item={item} />
+          <ItemCard key={item.id} item={item} onDelete={onDelete} onToggle={onToggle} />
         ))}
       </div>
     </section>

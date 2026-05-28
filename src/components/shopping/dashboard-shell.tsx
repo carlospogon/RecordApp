@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { finalizeListAction, quickAddReminderItemAction } from "@/app/app/actions";
+import { quickAddReminderItemAction } from "@/app/app/actions";
 import { AddItemForm } from "@/components/shopping/add-item-form";
 import { CreateListForm } from "@/components/shopping/create-list-form";
 import {
@@ -34,11 +35,19 @@ function formatDate(value?: string) {
 
 function FlowCard({
   currentList,
-  catalogProducts
+  catalogProducts,
+  onItemCreated,
+  onItemDeleted,
+  onFinalizeList
 }: {
   currentList: ShoppingList | null;
   catalogProducts: ProductCatalogItem[];
+  onItemCreated: (item: ShoppingItem) => void;
+  onItemDeleted: (itemId: string) => void;
+  onFinalizeList: (listId: string) => Promise<void> | void;
 }) {
+  const [pendingFinalize, startFinalizeTransition] = useTransition();
+
   if (!currentList) {
     return (
       <section className="rounded-[28px] bg-[linear-gradient(180deg,#f8fcf8_0%,#eef6f0_100%)] p-5 shadow-[0_16px_40px_rgba(18,40,28,0.08)]">
@@ -63,19 +72,29 @@ function FlowCard({
           </p>
         </div>
 
-        <form action={finalizeListAction}>
-          <input type="hidden" name="listId" value={currentList.id} />
+        <div>
           <button
-            type="submit"
+            type="button"
+            disabled={pendingFinalize}
+            onClick={() => {
+              startFinalizeTransition(async () => {
+                await onFinalizeList(currentList.id);
+              });
+            }}
             className="rounded-full border border-[var(--accent)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--accent-strong)] transition hover:bg-[var(--accent-soft)]"
           >
-            Finalizar lista
+            {pendingFinalize ? "Finalizando..." : "Finalizar lista"}
           </button>
-        </form>
+        </div>
       </div>
 
       <div className="mt-5">
-        <AddItemForm listId={currentList.id} catalogProducts={catalogProducts} />
+        <AddItemForm
+          listId={currentList.id}
+          catalogProducts={catalogProducts}
+          onItemCreated={onItemCreated}
+          onItemDeleted={onItemDeleted}
+        />
       </div>
     </section>
   );
@@ -324,6 +343,178 @@ export function DashboardShell({
   pushPublicKey?: string;
   userDisplayName: string;
 }) {
+  const [localCurrentList, setLocalCurrentList] = useState(currentList);
+  const [localItems, setLocalItems] = useState(items);
+  const [localLists, setLocalLists] = useState(lists);
+  const [localScheduledListReminders, setLocalScheduledListReminders] = useState(scheduledListReminders);
+
+  useEffect(() => {
+    setLocalCurrentList(currentList);
+  }, [currentList]);
+
+  useEffect(() => {
+    setLocalItems(items);
+  }, [items]);
+
+  useEffect(() => {
+    setLocalLists(lists);
+  }, [lists]);
+
+  useEffect(() => {
+    setLocalScheduledListReminders(scheduledListReminders);
+  }, [scheduledListReminders]);
+
+  const localFrequentProducts = useMemo<ProductInsight[]>(() => {
+    const appearances = new Map<string, { displayName: string; count: number }>();
+
+    for (const item of localItems) {
+      const current = appearances.get(item.normalizedName);
+      if (current) {
+        current.count += 1;
+      } else {
+        appearances.set(item.normalizedName, { displayName: item.name, count: 1 });
+      }
+    }
+
+    return [...appearances.entries()]
+      .map(([normalizedName, value]) => ({
+        normalizedName,
+        displayName: value.displayName,
+        appearances: value.count,
+        history: []
+      }))
+      .sort((a, b) => b.appearances - a.appearances)
+      .slice(0, 3);
+  }, [localItems]);
+
+  function incrementListCount(listId: string, delta: number) {
+    setLocalCurrentList((previous) =>
+      previous && previous.id === listId
+        ? {
+            ...previous,
+            itemCount: Math.max(0, (previous.itemCount ?? 0) + delta)
+          }
+        : previous
+    );
+    setLocalLists((previous) =>
+      previous.map((list) =>
+        list.id === listId
+          ? {
+              ...list,
+              itemCount: Math.max(0, (list.itemCount ?? 0) + delta)
+            }
+          : list
+      )
+    );
+  }
+
+  function handleItemCreated(item: ShoppingItem) {
+    setLocalItems((previous) => [...previous, item]);
+    incrementListCount(item.listId, 1);
+  }
+
+  function handleItemDeleted(itemId: string) {
+    setLocalItems((previous) => {
+      const itemToDelete = previous.find((item) => item.id === itemId);
+      const next = previous.filter((item) => item.id !== itemId);
+      if (next.length !== previous.length) {
+        incrementListCount(itemToDelete?.listId ?? "", -1);
+      }
+      return next;
+    });
+  }
+
+  function handleItemToggled(itemId: string, nextStatus: ShoppingItem["status"], nextCheckedAt: string | null) {
+    setLocalItems((previous) =>
+      previous.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              status: nextStatus,
+              checkedAt: nextCheckedAt,
+              updatedAt: new Date().toISOString()
+            }
+          : item
+      )
+    );
+  }
+
+  async function deleteListById(listId: string) {
+    const response = await fetch(`/api/lists/${listId}`, {
+      method: "DELETE"
+    });
+
+    if (!response.ok) {
+      throw new Error("No se pudo eliminar la lista.");
+    }
+  }
+
+  async function handleDeleteLists(listIds: string[]) {
+    const uniqueIds = [...new Set(listIds)];
+    if (uniqueIds.length === 0) {
+      return;
+    }
+
+    const previousLists = localLists;
+    const previousCurrentList = localCurrentList;
+    const previousItems = localItems;
+    const previousScheduledListReminders = localScheduledListReminders;
+
+    setLocalLists((current) => current.filter((list) => !uniqueIds.includes(list.id)));
+    setLocalScheduledListReminders((current) => current.filter((reminder) => !uniqueIds.includes(reminder.listId)));
+
+    if (localCurrentList && uniqueIds.includes(localCurrentList.id)) {
+      setLocalCurrentList(null);
+      setLocalItems([]);
+    }
+
+    try {
+      await Promise.all(uniqueIds.map((listId) => deleteListById(listId)));
+    } catch {
+      setLocalLists(previousLists);
+      setLocalCurrentList(previousCurrentList);
+      setLocalItems(previousItems);
+      setLocalScheduledListReminders(previousScheduledListReminders);
+    }
+  }
+
+  async function handleFinalizeList(listId: string) {
+    const previousCurrentList = localCurrentList;
+    const previousItems = localItems;
+    const previousLists = localLists;
+    const previousScheduledListReminders = localScheduledListReminders;
+    const completedAt = new Date().toISOString();
+
+    setLocalLists((current) =>
+      current.map((list) =>
+        list.id === listId
+          ? {
+              ...list,
+              completedAt
+            }
+          : list
+      )
+    );
+    setLocalScheduledListReminders((current) => current.filter((reminder) => reminder.listId !== listId));
+    setLocalCurrentList(null);
+    setLocalItems([]);
+
+    try {
+      const response = await fetch(`/api/lists/${listId}/finalize`, {
+        method: "POST"
+      });
+
+      if (!response.ok) {
+        throw new Error("No se pudo finalizar la lista.");
+      }
+    } catch {
+      setLocalCurrentList(previousCurrentList);
+      setLocalItems(previousItems);
+      setLocalLists(previousLists);
+      setLocalScheduledListReminders(previousScheduledListReminders);
+    }
+  }
+
   return (
     <div className="mt-5 grid gap-5">
       <div className="overflow-x-auto">
@@ -358,34 +549,47 @@ export function DashboardShell({
 
       {activeTab === "lista" ? (
         <>
-          <FlowCard currentList={currentList} catalogProducts={catalogProducts} />
-          {currentList ? (
+          <FlowCard
+            currentList={localCurrentList}
+            catalogProducts={catalogProducts}
+            onItemCreated={handleItemCreated}
+            onItemDeleted={handleItemDeleted}
+            onFinalizeList={handleFinalizeList}
+          />
+          {localCurrentList ? (
             <section className="rounded-[28px] bg-white p-4 shadow-[0_16px_40px_rgba(18,40,28,0.08)] sm:p-5">
-              <ItemsList items={items} />
+              <ItemsList items={localItems} onDelete={handleItemDeleted} onToggle={handleItemToggled} />
             </section>
           ) : null}
         </>
       ) : null}
 
-      {activeTab === "historial" ? <ListsPanel lists={lists} selectedListId={currentList?.id ?? null} /> : null}
+      {activeTab === "historial" ? (
+        <ListsPanel lists={localLists} selectedListId={localCurrentList?.id ?? null} onDeleteList={handleDeleteLists} />
+      ) : null}
 
       {activeTab === "sugerencias" ? (
         <RemindersPanel
           reminders={reminders}
-          currentListId={currentList?.id}
+          currentListId={localCurrentList?.id}
           frequentProducts={frequentProducts}
           catalogProducts={catalogProducts}
-          currentItems={items}
+          currentItems={localItems}
           suggestionItems={suggestionItems}
-          scheduledListReminders={scheduledListReminders}
+          scheduledListReminders={localScheduledListReminders}
           pushPublicKey={pushPublicKey}
         />
       ) : null}
 
-      {activeTab === "analisis" ? <AnalysisPanel analysis={analysis} currentListId={currentList?.id} /> : null}
+      {activeTab === "analisis" ? <AnalysisPanel analysis={analysis} currentListId={localCurrentList?.id} /> : null}
 
       {activeTab === "resumen" ? (
-        <SummaryPanel items={items} lists={lists} reminders={reminders} frequentProducts={frequentProducts} />
+        <SummaryPanel
+          items={localItems}
+          lists={localLists}
+          reminders={reminders}
+          frequentProducts={localFrequentProducts.length > 0 ? localFrequentProducts : frequentProducts}
+        />
       ) : null}
     </div>
   );
