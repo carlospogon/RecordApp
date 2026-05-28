@@ -26,6 +26,10 @@ const itemIdSchema = z.object({
   itemId: z.string().uuid()
 });
 
+const listIdSchema = z.object({
+  listId: z.string().uuid()
+});
+
 const quickAddItemSchema = z.object({
   listId: z.string().uuid(),
   name: z.string().trim().min(1).max(120),
@@ -132,6 +136,39 @@ export async function finalizeListAction(formData: FormData) {
 
   revalidatePath("/app");
   redirect("/app");
+}
+
+export async function deleteListAction(formData: FormData) {
+  const parsed = listIdSchema.safeParse({
+    listId: formData.get("listId") ?? ""
+  });
+
+  if (!parsed.success) {
+    return;
+  }
+
+  await getUserOrThrow();
+  const supabase = await createSupabaseServerClient();
+  await supabase.from("shopping_lists").delete().eq("id", parsed.data.listId);
+  revalidatePath("/app");
+  redirect("/app?tab=historial");
+}
+
+export async function deleteListsAction(formData: FormData) {
+  const listIds = formData
+    .getAll("listIds")
+    .map((value) => (typeof value === "string" ? value : ""))
+    .filter(Boolean);
+
+  if (listIds.length === 0) {
+    return;
+  }
+
+  await getUserOrThrow();
+  const supabase = await createSupabaseServerClient();
+  await supabase.from("shopping_lists").delete().in("id", listIds);
+  revalidatePath("/app");
+  redirect("/app?tab=historial");
 }
 
 export async function createItemAction(_: ActionState, formData: FormData): Promise<ActionState> {

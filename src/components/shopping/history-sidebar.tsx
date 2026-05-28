@@ -4,7 +4,13 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
-import { quickAddReminderItemAction, updateCatalogProductAction, type ActionState } from "@/app/app/actions";
+import {
+  deleteListAction,
+  deleteListsAction,
+  quickAddReminderItemAction,
+  updateCatalogProductAction,
+  type ActionState
+} from "@/app/app/actions";
 import { PushRemindersButton } from "@/components/pwa/push-reminders-button";
 import { getProductVisual } from "@/lib/shopping/product-visuals";
 import { getCategoryEstimateDays, getCategoryEstimateLabel } from "@/lib/shopping/product-insights";
@@ -435,10 +441,29 @@ export function ListsPanel({
   pageSize?: number;
 }) {
   const [page, setPage] = useState(0);
+  const [selectedListIds, setSelectedListIds] = useState<string[]>([]);
   const totalPages = Math.max(1, Math.ceil(lists.length / pageSize));
   const safePage = Math.min(page, totalPages - 1);
   const visibleLists = lists.slice(safePage * pageSize, safePage * pageSize + pageSize);
   const timelineMax = Math.max(...visibleLists.map((list) => list.itemCount ?? 0), 1);
+  const allVisibleSelected = visibleLists.length > 0 && visibleLists.every((list) => selectedListIds.includes(list.id));
+
+  function toggleListSelection(listId: string) {
+    setSelectedListIds((current) => (current.includes(listId) ? current.filter((id) => id !== listId) : [...current, listId]));
+  }
+
+  function toggleVisibleSelection() {
+    if (allVisibleSelected) {
+      setSelectedListIds((current) => current.filter((id) => !visibleLists.some((list) => list.id === id)));
+      return;
+    }
+
+    setSelectedListIds((current) => {
+      const next = new Set(current);
+      visibleLists.forEach((list) => next.add(list.id));
+      return [...next];
+    });
+  }
 
   return (
     <PanelFrame eyebrow="Historial" title="Listas anteriores">
@@ -446,6 +471,34 @@ export function ListsPanel({
         <p className="text-sm leading-6 text-[var(--muted)]">Todavia no hay listas historicas. Crea la primera para empezar a comparar compras.</p>
       ) : (
         <>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[22px] bg-[var(--surface-soft)] p-4">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={toggleVisibleSelection}
+                className="rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--text)] transition hover:bg-[#f7faf8]"
+              >
+                {allVisibleSelected ? "Deseleccionar visibles" : "Seleccionar visibles"}
+              </button>
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                {selectedListIds.length} seleccionadas
+              </span>
+            </div>
+
+            <form action={deleteListsAction}>
+              {selectedListIds.map((listId) => (
+                <input key={listId} type="hidden" name="listIds" value={listId} />
+              ))}
+              <button
+                type="submit"
+                disabled={selectedListIds.length === 0}
+                className="rounded-full bg-[#b44d4d] px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-[#973b3b] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Eliminar seleccionadas
+              </button>
+            </form>
+          </div>
+
           <div className="mb-4 rounded-[22px] bg-[var(--surface-soft)] p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Linea temporal</p>
             <div className="mt-4 flex items-end gap-3">
@@ -466,27 +519,54 @@ export function ListsPanel({
           <div className="grid gap-3">
             {visibleLists.map((list) => {
               const active = selectedListId === list.id;
+              const checked = selectedListIds.includes(list.id);
 
               return (
-                <Link
+                <article
                   key={list.id}
-                  href={`/app?list=${list.id}`}
                   className={`rounded-[22px] border p-4 transition ${
                     active
                       ? "border-[var(--accent)] bg-[var(--accent-soft)]"
                       : "border-[var(--border)] bg-[var(--surface-soft)] hover:border-[var(--accent)]/30"
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold text-[var(--text)]">{list.title}</p>
-                      <p className="mt-1 text-sm text-[var(--muted)]">{formatDate(list.shoppingDate)}</p>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleListSelection(list.id)}
+                          className="h-4 w-4 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)]"
+                        />
+                        <div>
+                          <p className="text-sm font-semibold text-[var(--text)]">{list.title}</p>
+                          <p className="mt-1 text-sm text-[var(--muted)]">{formatDate(list.shoppingDate)}</p>
+                        </div>
+                      </div>
                     </div>
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[var(--muted)]">
-                      {list.itemCount ?? 0} items
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[var(--muted)]">
+                        {list.itemCount ?? 0} items
+                      </span>
+                      <Link
+                        href={`/app?list=${list.id}`}
+                        className="rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--text)] transition hover:bg-[#f7faf8]"
+                      >
+                        Abrir
+                      </Link>
+                      <form action={deleteListAction}>
+                        <input type="hidden" name="listId" value={list.id} />
+                        <button
+                          type="submit"
+                          className="rounded-full bg-[#b44d4d] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#973b3b]"
+                        >
+                          Eliminar
+                        </button>
+                      </form>
+                    </div>
                   </div>
-                </Link>
+                </article>
               );
             })}
           </div>
