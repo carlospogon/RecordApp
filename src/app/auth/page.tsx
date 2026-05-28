@@ -4,10 +4,11 @@ import { AuthForms } from "@/components/auth/auth-forms";
 export default async function AuthPage({
   searchParams
 }: {
-  searchParams?: Promise<{ error?: string }>;
+  searchParams?: Promise<{ error?: string; mode?: string }>;
 }) {
   const params = (await searchParams) ?? {};
   const showGoogleError = params.error === "google";
+  const initialMode = params.mode === "signup" ? "signup" : "signin";
 
   return (
     <main className="min-h-screen bg-[#0d1514] px-4 py-8 text-white sm:px-6 lg:px-8">
@@ -34,7 +35,7 @@ export default async function AuthPage({
           </Link>
         </section>
 
-        <AuthForms />
+        <AuthForms initialMode={initialMode} />
       </div>
     </main>
   );

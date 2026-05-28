@@ -34,8 +34,8 @@ function AuthStateMessage({ state }: { state: AuthActionState }) {
   return null;
 }
 
-export function AuthForms() {
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+export function AuthForms({ initialMode = "signin" }: { initialMode?: "signin" | "signup" }) {
+  const [mode, setMode] = useState<"signin" | "signup">(initialMode);
   const [signInState, signInFormAction, signInPending] = useActionState(signInAction, initialAuthActionState);
   const [signUpState, signUpFormAction, signUpPending] = useActionState(signUpAction, initialAuthActionState);
   const isSignIn = mode === "signin";
