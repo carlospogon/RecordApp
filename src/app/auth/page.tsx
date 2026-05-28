@@ -11,29 +11,24 @@ export default async function AuthPage({
   const initialMode = params.mode === "signup" ? "signup" : "signin";
 
   return (
-    <main className="min-h-screen bg-[#0d1514] px-4 py-8 text-white sm:px-6 lg:px-8">
-      <div className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-[1.15fr_0.85fr]">
-        <section className="rounded-[30px] border border-white/10 bg-[linear-gradient(135deg,#101816_0%,#1a2722_58%,#111916_100%)] p-8">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-lime">Acceso</p>
-          <h1 className="mt-4 text-4xl font-semibold leading-tight">
-            Guarda tus listas, detecta repetidos y convierte el historial en recordatorios utiles.
-          </h1>
-          <p className="mt-5 max-w-2xl text-base leading-8 text-slate">
-            RecordApp asocia cada lista a tu cuenta para que la memoria historica, los productos frecuentes y las sugerencias se mantengan separadas por usuario.
-          </p>
-          <div className="mt-8 rounded-[26px] border border-white/10 bg-[#101816] p-5 text-sm leading-7 text-mint">
-            Puedes entrar con email y contrasena o activar Google desde Supabase Auth para acelerar el alta en movil.
+    <main className="min-h-screen bg-[linear-gradient(180deg,#eff8f1_0%,#f7fbf8_100%)] px-4 py-8 text-[#173025] sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-xl flex-col gap-5">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#0f7e4c]">Acceso</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[#173025]">Entra en RecordApp</h1>
           </div>
-          {showGoogleError ? (
-            <div className="mt-4 rounded-[22px] border border-[#6b2323] bg-[#311515] p-4 text-sm text-[#ffb0b0]">
-              Google Auth no termino bien. Revisa que el proveedor este activado en Supabase y que el redirect URL apunte a
-              `/auth/callback`.
-            </div>
-          ) : null}
-          <Link href="/" className="mt-6 inline-flex text-sm font-semibold text-lime">
-            Volver a la portada
+          <Link href="/" className="text-sm font-semibold text-[#0f7e4c]">
+            Volver
           </Link>
-        </section>
+        </div>
+
+        {showGoogleError ? (
+          <div className="rounded-[22px] border border-[#e9b1b1] bg-[#fff3f3] p-4 text-sm text-[#b44d4d]">
+            Google Auth no termino bien. Revisa que el proveedor este activado en Supabase y que el redirect URL apunte a
+            `/auth/callback`.
+          </div>
+        ) : null}
 
         <AuthForms initialMode={initialMode} />
       </div>

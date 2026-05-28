@@ -50,16 +50,10 @@ export function Hero() {
 
         <div className="mt-7 grid w-full gap-3">
           <Link
-            href="/auth?mode=signup"
+            href="/auth"
             className="rounded-[18px] bg-[linear-gradient(180deg,#11814f_0%,#0c6c42_100%)] px-5 py-4 text-base font-semibold text-white shadow-[0_14px_24px_rgba(17,129,79,0.22)] transition hover:translate-y-[-1px] hover:shadow-[0_18px_28px_rgba(17,129,79,0.26)]"
           >
-            Registrarme
-          </Link>
-          <Link
-            href="/auth?mode=signin"
-            className="rounded-[18px] border border-[#d4e4d8] bg-white px-5 py-4 text-base font-semibold text-[#173025] transition hover:border-[#1d8f59] hover:text-[#1d8f59]"
-          >
-            Iniciar sesion
+            Comenzar <span className="ml-2">→</span>
           </Link>
           <div className="pt-1">
             <InstallAppButton />
