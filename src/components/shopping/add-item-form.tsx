@@ -42,13 +42,10 @@ export function AddItemForm({
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Anadir producto</p>
           <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">Rellena la lista activa</h3>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            Busca primero en tu catalogo de productos. Si no existe, lo guardaremos para reutilizarlo y mejorar futuras sugerencias.
-          </p>
         </div>
 
         <div className="grid gap-3">
-          <div className="rounded-[22px] border border-[var(--border)] bg-white p-3">
+          <div className="rounded-[24px] border border-[var(--border)] bg-white p-4 shadow-[0_10px_24px_rgba(18,40,28,0.05)]">
             <input
               type="text"
               name="name"
@@ -57,7 +54,7 @@ export function AddItemForm({
               onChange={(event) => setName(event.currentTarget.value)}
               placeholder="Huevos, patatas, arroz..."
               required
-              className="w-full border-0 bg-transparent px-1 py-2 text-sm text-[var(--text)] outline-none"
+              className="w-full border-0 bg-transparent px-1 py-2 text-lg font-medium text-[var(--text)] outline-none placeholder:text-[var(--muted)]"
             />
             <datalist id="recordapp-product-catalog">
               {availableProducts.map((product) => (

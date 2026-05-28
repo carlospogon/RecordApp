@@ -5,10 +5,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { quickAddReminderItemAction, updateCatalogProductAction, type ActionState } from "@/app/app/actions";
+import { PushRemindersButton } from "@/components/pwa/push-reminders-button";
 import { getProductVisual } from "@/lib/shopping/product-visuals";
 import { getCategoryEstimateDays, getCategoryEstimateLabel } from "@/lib/shopping/product-insights";
 import { buildSmartSuggestion } from "@/lib/shopping/smart-recommendations";
-import { ProductCatalogItem, ProductCategory, ProductInsight, ReminderSuggestion, ShoppingItem, ShoppingList } from "@/types/shopping";
+import { ProductCatalogItem, ProductCategory, ProductInsight, ReminderSuggestion, ScheduledListReminder, ShoppingItem, ShoppingList } from "@/types/shopping";
 
 const initialActionState: ActionState = {};
 const productCategories: ProductCategory[] = [
@@ -38,7 +39,7 @@ function formatDate(value?: string) {
 
 function diffInDays(from: Date, to: Date) {
   const delta = to.getTime() - from.getTime();
-  return Math.max(0, Math.round(delta / (1000 * 60 * 60 * 24)));
+  return Math.max(0, Math.floor(delta / (1000 * 60 * 60 * 24)));
 }
 
 function PanelFrame({
@@ -103,24 +104,32 @@ export function RemindersPanel({
   currentListId,
   frequentProducts,
   catalogProducts,
-  currentItems
+  currentItems,
+  suggestionItems,
+  scheduledListReminders,
+  pushPublicKey
 }: {
   reminders: ReminderSuggestion[];
   currentListId?: string | null;
   frequentProducts: ProductInsight[];
   catalogProducts: ProductCatalogItem[];
   currentItems: ShoppingItem[];
+  suggestionItems: ShoppingItem[];
+  scheduledListReminders: ScheduledListReminder[];
+  pushPublicKey?: string;
 }) {
   const predictedProducts = useMemo(() => {
-    const boughtItems = currentItems.filter((item) => item.status === "bought");
     const now = new Date();
 
-    return boughtItems.map((item) => {
+    return suggestionItems.map((item) => {
       const insight = frequentProducts.find((entry) => entry.normalizedName === item.normalizedName);
       const catalogProduct = catalogProducts.find((product) => product.normalizedName === item.normalizedName);
       const sourceDate = item.checkedAt ?? item.updatedAt ?? item.createdAt;
       const lastPurchaseDate = new Date(sourceDate);
-      const estimatedWindowDays = insight?.averageIntervalDays ?? getCategoryEstimateDays(catalogProduct?.category);
+      const estimatedWindowDays =
+        insight?.averageIntervalDays && insight.averageIntervalDays > 0
+          ? insight.averageIntervalDays
+          : getCategoryEstimateDays(catalogProduct?.category);
       const elapsedDays = diffInDays(lastPurchaseDate, now);
       const progress = Math.min(100, Math.round((elapsedDays / estimatedWindowDays) * 100));
       const remainingPercent = Math.max(0, 100 - progress);
@@ -147,6 +156,24 @@ export function RemindersPanel({
   return (
     <PanelFrame eyebrow="Recordatorios" title="Sugerencias inteligentes">
       <div className="grid gap-4">
+        {scheduledListReminders.length > 0 ? (
+          <article className="rounded-[24px] bg-[linear-gradient(135deg,#eef8ff_0%,#dff0ff_100%)] p-4">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-[#2b6cb0]">Lista pendiente</span>
+                <h4 className="mt-3 text-lg font-semibold text-[var(--text)]">
+                  Recuerda que tienes una lista pendiente para {formatDate(scheduledListReminders[0]?.shoppingDate)}
+                </h4>
+                <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                  Te la recordaremos desde el {formatDate(scheduledListReminders[0]?.reminderDate)}. Si activas notificaciones push, tambien
+                  podras recibir el aviso fuera de la app.
+                </p>
+              </div>
+              <PushRemindersButton publicKey={pushPublicKey} />
+            </div>
+          </article>
+        ) : null}
+
         {smartSuggestion ? (
           <article className="rounded-[24px] bg-[linear-gradient(135deg,#dff6ea_0%,#cceee1_100%)] p-4">
             <div className="flex items-start justify-between gap-4">
@@ -263,7 +290,7 @@ export function RemindersPanel({
         ) : (
         <div className="rounded-[22px] bg-[var(--surface-soft)] p-4">
           <p className="text-sm font-medium text-[var(--muted)]">
-            Marca productos como comprados en tu lista actual y empezaremos a levantar recordatorios con barra de progreso.
+            En cuanto marques productos como comprados, esta seccion empezara a calcular la reposicion desde esa fecha, aunque la lista ya este cerrada.
           </p>
         </div>
         )}

@@ -1,10 +1,12 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
+import { buildShoppingAnalysis } from "@/lib/shopping/analysis";
 import { buildReminders, buildProductInsights } from "@/lib/shopping/product-insights";
 import { normalizeProductName } from "@/lib/shopping/normalize-product";
 import {
   ProductCatalogItem,
   ProductInsight,
+  ScheduledListReminder,
   ShoppingDashboardData,
   ShoppingDuplicateNotice,
   ShoppingItem,
@@ -15,8 +17,11 @@ type ShoppingListRow = {
   id: string;
   title: string;
   shopping_date: string;
+  reminder_date?: string | null;
+  reminder_sent_at?: string | null;
   created_at: string;
   updated_at: string;
+  completed_at?: string | null;
 };
 
 type ShoppingItemRow = {
@@ -46,8 +51,11 @@ function mapListRow(row: ShoppingListRow): ShoppingList {
     id: row.id,
     title: row.title,
     shoppingDate: row.shopping_date,
+    reminderDate: row.reminder_date ?? null,
+    reminderSentAt: row.reminder_sent_at ?? null,
     createdAt: row.created_at,
-    updatedAt: row.updated_at
+    updatedAt: row.updated_at,
+    completedAt: row.completed_at ?? null
   };
 }
 
@@ -143,11 +151,28 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
   }
 
   const supabase = await createSupabaseServerClient();
-  const { data: listsData, error: listError } = await supabase
-    .from("shopping_lists")
-    .select("id, title, shopping_date, created_at, updated_at")
-    .order("shopping_date", { ascending: false })
-    .order("created_at", { ascending: false });
+  let listsData: ShoppingListRow[] | null = null;
+  let listError: { message: string } | null = null;
+
+  try {
+    const response = await supabase
+      .from("shopping_lists")
+      .select("id, title, shopping_date, reminder_date, reminder_sent_at, created_at, updated_at, completed_at")
+      .order("shopping_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    listsData = response.data as ShoppingListRow[] | null;
+    listError = response.error ? { message: response.error.message } : null;
+  } catch {
+    const fallbackResponse = await supabase
+      .from("shopping_lists")
+      .select("id, title, shopping_date, created_at, updated_at")
+      .order("shopping_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    listsData = fallbackResponse.data as ShoppingListRow[] | null;
+    listError = fallbackResponse.error ? { message: fallbackResponse.error.message } : null;
+  }
 
   if (listError) {
     throw new Error(listError.message);
@@ -175,26 +200,65 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
       itemCount: itemCountByListId[list.id] ?? 0
     };
   });
-  const currentList =
-    lists.find((list) => list.id === selectedListId) ??
-    lists[0] ??
-    null;
+  const currentList = selectedListId ? lists.find((list) => list.id === selectedListId) ?? null : null;
 
   const items = allItems
     .filter((item) => item.listId === currentList?.id)
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const suggestionItems = (() => {
+    const latestBoughtByProduct = new Map<string, ShoppingItem>();
+
+    for (const item of allItems) {
+      if (item.status !== "bought") {
+        continue;
+      }
+
+      const current = latestBoughtByProduct.get(item.normalizedName);
+      const currentDate = current ? new Date(current.checkedAt ?? current.updatedAt ?? current.createdAt).getTime() : 0;
+      const candidateDate = new Date(item.checkedAt ?? item.updatedAt ?? item.createdAt).getTime();
+
+      if (!current || candidateDate > currentDate) {
+        latestBoughtByProduct.set(item.normalizedName, item);
+      }
+    }
+
+    return [...latestBoughtByProduct.values()].sort((a, b) => {
+      const aDate = new Date(a.checkedAt ?? a.updatedAt ?? a.createdAt).getTime();
+      const bDate = new Date(b.checkedAt ?? b.updatedAt ?? b.createdAt).getTime();
+      return bDate - aDate;
+    });
+  })();
   const frequentProducts = buildProductInsights(allItems);
   const reminders = buildReminders(frequentProducts);
   const catalogProducts = await getCatalogProducts(supabase, allItems);
+  const today = new Date().toISOString().slice(0, 10);
+  const scheduledListReminders: ScheduledListReminder[] = lists
+    .filter((list) => !list.completedAt && list.reminderDate)
+    .map((list) => ({
+      listId: list.id,
+      title: list.title,
+      shoppingDate: list.shoppingDate,
+      reminderDate: list.reminderDate as string,
+      isDue: (list.reminderDate as string) <= today
+    }))
+    .sort((a, b) => a.reminderDate.localeCompare(b.reminderDate));
+  const analysis = buildShoppingAnalysis({
+    lists,
+    items: allItems,
+    catalogProducts
+  });
 
   return {
     userEmail: user.email ?? "Usuario",
     currentList,
     lists,
     items,
+    suggestionItems,
+    scheduledListReminders,
     reminders,
     frequentProducts,
     catalogProducts,
+    analysis,
     selectedListId: currentList?.id ?? null
   };
 }

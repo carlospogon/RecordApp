@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useActionState } from "react";
 import { createListAction, type ActionState } from "@/app/app/actions";
 
@@ -8,6 +9,9 @@ const initialActionState: ActionState = {};
 export function CreateListForm() {
   const [state, formAction, pending] = useActionState(createListAction, initialActionState);
   const defaultDate = new Date().toISOString().slice(0, 10);
+  const [shoppingDate, setShoppingDate] = useState(defaultDate);
+  const showReminderDate = useMemo(() => shoppingDate > defaultDate, [shoppingDate, defaultDate]);
+  const defaultReminderDate = useMemo(() => (showReminderDate ? shoppingDate : ""), [showReminderDate, shoppingDate]);
 
   return (
     <form action={formAction} className="grid gap-4 rounded-[26px] border border-[var(--border)] bg-[var(--surface-soft)] p-5">
@@ -29,10 +33,24 @@ export function CreateListForm() {
         <input
           type="date"
           name="shoppingDate"
-          defaultValue={defaultDate}
+          value={shoppingDate}
+          onChange={(event) => setShoppingDate(event.currentTarget.value)}
           required
           className="rounded-[18px] border border-[var(--border)] bg-white px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
         />
+        {showReminderDate ? (
+          <div className="grid gap-2 rounded-[18px] border border-[var(--border)] bg-white px-4 py-4">
+            <p className="text-sm font-semibold text-[var(--text)]">Para cuando quieres que te recuerde esta lista?</p>
+            <input
+              type="date"
+              name="reminderDate"
+              min={defaultDate}
+              max={shoppingDate}
+              defaultValue={defaultReminderDate}
+              className="rounded-[14px] border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
+            />
+          </div>
+        ) : null}
       </div>
 
       {state.error ? <p className="rounded-2xl bg-[#fff1f1] px-4 py-3 text-sm text-[#b44d4d]">{state.error}</p> : null}

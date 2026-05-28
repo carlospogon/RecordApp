@@ -30,7 +30,7 @@ const categoryEstimateLabels: Record<ProductCategory, string> = {
 
 function diffInDays(from: Date, to: Date) {
   const delta = to.getTime() - from.getTime();
-  return Math.round(delta / (1000 * 60 * 60 * 24));
+  return Math.max(0, Math.floor(delta / (1000 * 60 * 60 * 24)));
 }
 
 function average(values: number[]) {
@@ -38,7 +38,8 @@ function average(values: number[]) {
     return undefined;
   }
 
-  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+  const result = Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+  return result > 0 ? result : undefined;
 }
 
 export function buildProductInsights(items: ShoppingItem[]): ProductInsight[] {
@@ -53,7 +54,10 @@ export function buildProductInsights(items: ShoppingItem[]): ProductInsight[] {
   return [...grouped.entries()]
     .map(([normalizedName, group]) => {
       const ordered = [...group].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-      const dates = ordered.map((item) => new Date(item.createdAt));
+      const boughtOrdered = ordered.filter((item) => item.status === "bought" && item.checkedAt);
+      const dates = (boughtOrdered.length > 0 ? boughtOrdered : ordered).map((item) =>
+        new Date(item.checkedAt ?? item.createdAt)
+      );
       const intervals: number[] = [];
 
       for (let index = 1; index < dates.length; index += 1) {
@@ -61,7 +65,7 @@ export function buildProductInsights(items: ShoppingItem[]): ProductInsight[] {
       }
 
       const averageIntervalDays = average(intervals);
-      const lastSeenAt = ordered.at(-1)?.createdAt;
+      const lastSeenAt = (boughtOrdered.at(-1)?.checkedAt ?? ordered.at(-1)?.createdAt) || undefined;
       const estimatedNextPurchaseAt =
         averageIntervalDays && lastSeenAt
           ? new Date(new Date(lastSeenAt).getTime() + averageIntervalDays * 24 * 60 * 60 * 1000).toISOString()
@@ -77,7 +81,7 @@ export function buildProductInsights(items: ShoppingItem[]): ProductInsight[] {
         history: ordered.map((item) => ({
           itemId: item.id,
           listId: item.listId,
-          date: item.createdAt,
+          date: item.checkedAt ?? item.createdAt,
           quantity: item.quantity,
           unit: item.unit,
           status: item.status

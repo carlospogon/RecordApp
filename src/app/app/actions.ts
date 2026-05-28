@@ -10,7 +10,8 @@ import { ProductCategory, ShoppingDuplicateNotice } from "@/types/shopping";
 
 const createListSchema = z.object({
   title: z.string().trim().max(120).optional(),
-  shoppingDate: z.string().trim().min(1)
+  shoppingDate: z.string().trim().min(1),
+  reminderDate: z.string().trim().optional()
 });
 
 const createItemSchema = z.object({
@@ -84,7 +85,8 @@ export type { ActionState };
 export async function createListAction(_: ActionState, formData: FormData): Promise<ActionState> {
   const parsed = createListSchema.safeParse({
     title: formData.get("title") ?? "",
-    shoppingDate: formData.get("shoppingDate") ?? ""
+    shoppingDate: formData.get("shoppingDate") ?? "",
+    reminderDate: formData.get("reminderDate") ?? ""
   });
 
   if (!parsed.success) {
@@ -98,7 +100,8 @@ export async function createListAction(_: ActionState, formData: FormData): Prom
     .insert({
       user_id: user.id,
       title: parsed.data.title || "Lista de compra",
-      shopping_date: parsed.data.shoppingDate
+      shopping_date: parsed.data.shoppingDate,
+      reminder_date: parsed.data.reminderDate || null
     })
     .select("id")
     .single();
@@ -109,6 +112,26 @@ export async function createListAction(_: ActionState, formData: FormData): Prom
 
   revalidatePath("/app");
   redirect(data?.id ? `/app?list=${data.id}` : "/app");
+}
+
+export async function finalizeListAction(formData: FormData) {
+  const listId = formData.get("listId");
+
+  if (typeof listId !== "string" || !listId) {
+    return;
+  }
+
+  await getUserOrThrow();
+  const supabase = await createSupabaseServerClient();
+  await supabase
+    .from("shopping_lists")
+    .update({
+      completed_at: new Date().toISOString()
+    })
+    .eq("id", listId);
+
+  revalidatePath("/app");
+  redirect("/app");
 }
 
 export async function createItemAction(_: ActionState, formData: FormData): Promise<ActionState> {

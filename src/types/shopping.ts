@@ -17,8 +17,11 @@ export type ShoppingList = {
   id: string;
   title: string;
   shoppingDate: string;
+  reminderDate?: string | null;
+  reminderSentAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  completedAt?: string | null;
   itemCount?: number;
 };
 
@@ -60,6 +63,40 @@ export type ReminderSuggestion = {
   estimatedNextPurchaseAt: string;
 };
 
+export type AnalysisBucketKey = "vegetales" | "proteinas" | "carbohidratos" | "lacteos" | "otros";
+
+export type AnalysisBucket = {
+  key: AnalysisBucketKey;
+  label: string;
+  count: number;
+  percentage: number;
+  color: string;
+};
+
+export type AnalysisRecommendation = {
+  title: string;
+  body: string;
+  productName?: string;
+  quantity?: string | null;
+  unit?: string | null;
+};
+
+export type ShoppingAnalysis = {
+  consideredListsCount: number;
+  totalItems: number;
+  buckets: AnalysisBucket[];
+  findings: string[];
+  recommendations: AnalysisRecommendation[];
+};
+
+export type ScheduledListReminder = {
+  listId: string;
+  title: string;
+  shoppingDate: string;
+  reminderDate: string;
+  isDue: boolean;
+};
+
 export type ProductCatalogItem = {
   id?: string;
   name: string;
@@ -86,8 +123,11 @@ export type ShoppingDashboardData = {
   currentList: ShoppingList | null;
   lists: ShoppingList[];
   items: ShoppingItem[];
+  suggestionItems: ShoppingItem[];
+  scheduledListReminders: ScheduledListReminder[];
   reminders: ReminderSuggestion[];
   frequentProducts: ProductInsight[];
   catalogProducts: ProductCatalogItem[];
+  analysis: ShoppingAnalysis;
   selectedListId?: string | null;
 };
