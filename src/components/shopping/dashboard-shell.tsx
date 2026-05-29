@@ -5,6 +5,7 @@ import Link from "next/link";
 import { quickAddReminderItemAction } from "@/app/app/actions";
 import { AddItemForm } from "@/components/shopping/add-item-form";
 import { CreateListForm } from "@/components/shopping/create-list-form";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   ListsPanel,
   RemindersPanel
@@ -32,6 +33,21 @@ function formatDate(value?: string) {
     month: "short",
     year: "numeric"
   }).format(new Date(value));
+}
+
+function mapRealtimeItem(row: Record<string, unknown>): ShoppingItem {
+  return {
+    id: String(row.id),
+    listId: String(row.list_id),
+    name: String(row.name),
+    normalizedName: String(row.normalized_name),
+    quantity: typeof row.quantity === "string" ? row.quantity : null,
+    unit: typeof row.unit === "string" ? row.unit : null,
+    status: row.status === "bought" ? "bought" : "pending",
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+    checkedAt: typeof row.checked_at === "string" ? row.checked_at : null
+  };
 }
 
 function FlowCard({
@@ -492,6 +508,71 @@ export function DashboardShell({
     setLocalSelectedListId(selectedListId ?? null);
   }, [selectedListId]);
 
+  useEffect(() => {
+    if (!localCurrentList?.id || localCurrentList.id.startsWith("temp-list-")) {
+      return;
+    }
+
+    const supabase = createSupabaseBrowserClient();
+    const channel = supabase
+      .channel(`shopping-items-${localCurrentList.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "shopping_items",
+          filter: `list_id=eq.${localCurrentList.id}`
+        },
+        (payload) => {
+          if (payload.eventType === "INSERT" && payload.new) {
+            const nextItem = mapRealtimeItem(payload.new as Record<string, unknown>);
+            let inserted = false;
+            setLocalItems((previous) => {
+              if (previous.some((item) => item.id === nextItem.id)) {
+                return previous;
+              }
+
+              inserted = true;
+              return [...previous, nextItem].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+            });
+            if (inserted) {
+              incrementListCount(nextItem.listId, 1);
+            }
+          }
+
+          if (payload.eventType === "UPDATE" && payload.new) {
+            const nextItem = mapRealtimeItem(payload.new as Record<string, unknown>);
+            setLocalItems((previous) => previous.map((item) => (item.id === nextItem.id ? nextItem : item)));
+          }
+
+          if (payload.eventType === "DELETE" && payload.old) {
+            const removedId = String((payload.old as Record<string, unknown>).id);
+            let removedListId = "";
+            let removed = false;
+            setLocalItems((previous) => {
+              const itemToRemove = previous.find((item) => item.id === removedId);
+              if (!itemToRemove) {
+                return previous;
+              }
+
+              removedListId = itemToRemove.listId;
+              removed = true;
+              return previous.filter((item) => item.id !== removedId);
+            });
+            if (removed) {
+              incrementListCount(removedListId, -1);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [localCurrentList?.id]);
+
   const localFrequentProducts = useMemo<ProductInsight[]>(() => {
     const appearances = new Map<string, { displayName: string; count: number }>();
 
@@ -613,9 +694,21 @@ export function DashboardShell({
   function handleListJoined(list: ShoppingList) {
     setLocalCurrentList(list);
     setLocalSelectedListId(list.id);
-    setLocalItems([]);
     setLocalLists((previous) => (previous.some((entry) => entry.id === list.id) ? previous : [list, ...previous]));
     syncListUrl(list.id);
+
+    fetch(`/api/lists/${list.id}/items`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (payload?.items) {
+          setLocalItems(payload.items as ShoppingItem[]);
+        } else {
+          setLocalItems([]);
+        }
+      })
+      .catch(() => {
+        setLocalItems([]);
+      });
   }
 
   function handleItemToggled(itemId: string, nextStatus: ShoppingItem["status"], nextCheckedAt: string | null) {
