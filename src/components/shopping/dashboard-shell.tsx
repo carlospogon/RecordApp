@@ -37,14 +37,18 @@ function FlowCard({
   currentList,
   catalogProducts,
   onItemCreated,
+  onOptimisticItemCreated,
   onItemDeleted,
-  onFinalizeList
+  onFinalizeList,
+  onListCreated
 }: {
   currentList: ShoppingList | null;
   catalogProducts: ProductCatalogItem[];
-  onItemCreated: (item: ShoppingItem) => void;
+  onItemCreated: (item: ShoppingItem, tempId?: string) => void;
+  onOptimisticItemCreated: (item: ShoppingItem) => void;
   onItemDeleted: (itemId: string) => void;
   onFinalizeList: (listId: string) => Promise<void> | void;
+  onListCreated: (list: ShoppingList) => void;
 }) {
   const [pendingFinalize, startFinalizeTransition] = useTransition();
 
@@ -56,7 +60,7 @@ function FlowCard({
           <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--text)]">Crea tu primera lista</h2>
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Empieza por una lista nueva. En cuanto la crees, pasaras al Paso 2.</p>
         </div>
-        <CreateListForm />
+        <CreateListForm onListCreated={onListCreated} />
       </section>
     );
   }
@@ -93,6 +97,7 @@ function FlowCard({
           listId={currentList.id}
           catalogProducts={catalogProducts}
           onItemCreated={onItemCreated}
+          onOptimisticItemCreated={onOptimisticItemCreated}
           onItemDeleted={onItemDeleted}
         />
       </div>
@@ -348,6 +353,7 @@ export function DashboardShell({
   const [localItems, setLocalItems] = useState(items);
   const [localLists, setLocalLists] = useState(lists);
   const [localScheduledListReminders, setLocalScheduledListReminders] = useState(scheduledListReminders);
+  const [localSelectedListId, setLocalSelectedListId] = useState<string | null>(selectedListId ?? null);
 
   useEffect(() => {
     setLocalActiveTab(activeTab);
@@ -368,6 +374,10 @@ export function DashboardShell({
   useEffect(() => {
     setLocalScheduledListReminders(scheduledListReminders);
   }, [scheduledListReminders]);
+
+  useEffect(() => {
+    setLocalSelectedListId(selectedListId ?? null);
+  }, [selectedListId]);
 
   const localFrequentProducts = useMemo<ProductInsight[]>(() => {
     const appearances = new Map<string, { displayName: string; count: number }>();
@@ -413,9 +423,20 @@ export function DashboardShell({
     );
   }
 
-  function handleItemCreated(item: ShoppingItem) {
+  function handleOptimisticItemCreated(item: ShoppingItem) {
     setLocalItems((previous) => [...previous, item]);
     incrementListCount(item.listId, 1);
+  }
+
+  function handleItemCreated(item: ShoppingItem, tempId?: string) {
+    setLocalItems((previous) => {
+      if (tempId && previous.some((current) => current.id === tempId)) {
+        return previous.map((current) => (current.id === tempId ? item : current));
+      }
+
+      incrementListCount(item.listId, 1);
+      return [...previous, item];
+    });
   }
 
   function handleItemDeleted(itemId: string) {
@@ -427,6 +448,34 @@ export function DashboardShell({
       }
       return next;
     });
+  }
+
+  function handleListCreated(list: ShoppingList) {
+    setLocalCurrentList(list);
+    setLocalSelectedListId(list.id);
+    setLocalItems([]);
+    setLocalLists((previous) => [list, ...previous]);
+
+    if (list.reminderDate) {
+      const reminderDate = list.reminderDate;
+      setLocalScheduledListReminders((previous) => [
+        {
+          listId: list.id,
+          title: list.title,
+          shoppingDate: list.shoppingDate,
+          reminderDate,
+          isDue: reminderDate <= new Date().toISOString().slice(0, 10)
+        },
+        ...previous
+      ]);
+    }
+
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("list", list.id);
+      url.searchParams.set("tab", "lista");
+      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    }
   }
 
   function handleItemToggled(itemId: string, nextStatus: ShoppingItem["status"], nextCheckedAt: string | null) {
@@ -470,6 +519,7 @@ export function DashboardShell({
 
     if (localCurrentList && uniqueIds.includes(localCurrentList.id)) {
       setLocalCurrentList(null);
+      setLocalSelectedListId(null);
       setLocalItems([]);
     }
 
@@ -502,6 +552,7 @@ export function DashboardShell({
     );
     setLocalScheduledListReminders((current) => current.filter((reminder) => reminder.listId !== listId));
     setLocalCurrentList(null);
+    setLocalSelectedListId(null);
     setLocalItems([]);
 
     try {
@@ -514,6 +565,7 @@ export function DashboardShell({
       }
     } catch {
       setLocalCurrentList(previousCurrentList);
+      setLocalSelectedListId(previousCurrentList?.id ?? null);
       setLocalItems(previousItems);
       setLocalLists(previousLists);
       setLocalScheduledListReminders(previousScheduledListReminders);
@@ -530,8 +582,10 @@ export function DashboardShell({
     const url = new URL(window.location.href);
     url.searchParams.set("tab", nextTab);
 
-    if (selectedListId) {
-      url.searchParams.set("list", selectedListId);
+    const listIdForUrl = localSelectedListId ?? localCurrentList?.id ?? null;
+
+    if (listIdForUrl) {
+      url.searchParams.set("list", listIdForUrl);
     } else {
       url.searchParams.delete("list");
     }
@@ -574,8 +628,10 @@ export function DashboardShell({
             currentList={localCurrentList}
             catalogProducts={catalogProducts}
             onItemCreated={handleItemCreated}
+            onOptimisticItemCreated={handleOptimisticItemCreated}
             onItemDeleted={handleItemDeleted}
             onFinalizeList={handleFinalizeList}
+            onListCreated={handleListCreated}
           />
           {localCurrentList ? (
             <section className="rounded-[28px] bg-white p-4 shadow-[0_16px_40px_rgba(18,40,28,0.08)] sm:p-5">

@@ -1,20 +1,63 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useActionState } from "react";
-import { createListAction, type ActionState } from "@/app/app/actions";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { ShoppingList } from "@/types/shopping";
 
-const initialActionState: ActionState = {};
+type CreateListFormProps = {
+  onListCreated?: (list: ShoppingList) => void;
+};
 
-export function CreateListForm() {
-  const [state, formAction, pending] = useActionState(createListAction, initialActionState);
+export function CreateListForm({ onListCreated }: CreateListFormProps) {
+  const [pending, startTransition] = useTransition();
   const defaultDate = new Date().toISOString().slice(0, 10);
   const [shoppingDate, setShoppingDate] = useState(defaultDate);
+  const [title, setTitle] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const showReminderDate = useMemo(() => shoppingDate > defaultDate, [shoppingDate, defaultDate]);
   const defaultReminderDate = useMemo(() => (showReminderDate ? shoppingDate : ""), [showReminderDate, shoppingDate]);
+  const [reminderDate, setReminderDate] = useState(defaultReminderDate);
+
+  useEffect(() => {
+    setReminderDate(defaultReminderDate);
+  }, [defaultReminderDate]);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    startTransition(async () => {
+      try {
+        const response = await fetch("/api/lists", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            title,
+            shoppingDate,
+            reminderDate: showReminderDate ? reminderDate || shoppingDate : ""
+          })
+        });
+
+        const payload = (await response.json()) as { list?: ShoppingList; error?: string };
+
+        if (!response.ok || !payload.list) {
+          throw new Error(payload.error || "No se pudo crear la lista.");
+        }
+
+        setTitle("");
+        setSuccess("Lista creada.");
+        onListCreated?.(payload.list);
+      } catch (submitError) {
+        setError(submitError instanceof Error ? submitError.message : "No se pudo crear la lista.");
+      }
+    });
+  }
 
   return (
-    <form action={formAction} className="grid gap-4 rounded-[26px] border border-[var(--border)] bg-[var(--surface-soft)] p-5">
+    <form onSubmit={handleSubmit} className="grid gap-4 rounded-[26px] border border-[var(--border)] bg-[var(--surface-soft)] p-5">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Nueva lista</p>
         <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">Prepara una compra nueva</h3>
@@ -27,6 +70,8 @@ export function CreateListForm() {
         <input
           type="text"
           name="title"
+          value={title}
+          onChange={(event) => setTitle(event.currentTarget.value)}
           placeholder="Compra semanal, fruteria, hogar..."
           className="rounded-[18px] border border-[var(--border)] bg-white px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
         />
@@ -46,15 +91,16 @@ export function CreateListForm() {
               name="reminderDate"
               min={defaultDate}
               max={shoppingDate}
-              defaultValue={defaultReminderDate}
+              value={reminderDate || defaultReminderDate}
+              onChange={(event) => setReminderDate(event.currentTarget.value)}
               className="rounded-[14px] border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
             />
           </div>
         ) : null}
       </div>
 
-      {state.error ? <p className="rounded-2xl bg-[#fff1f1] px-4 py-3 text-sm text-[#b44d4d]">{state.error}</p> : null}
-      {state.success ? <p className="rounded-2xl bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--accent-strong)]">{state.success}</p> : null}
+      {error ? <p className="rounded-2xl bg-[#fff1f1] px-4 py-3 text-sm text-[#b44d4d]">{error}</p> : null}
+      {success ? <p className="rounded-2xl bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--accent-strong)]">{success}</p> : null}
 
       <button
         type="submit"

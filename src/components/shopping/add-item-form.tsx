@@ -6,7 +6,8 @@ import { ProductCatalogItem, ShoppingDuplicateNotice, ShoppingItem } from "@/typ
 type AddItemFormProps = {
   listId: string;
   catalogProducts: ProductCatalogItem[];
-  onItemCreated?: (item: ShoppingItem) => void;
+  onItemCreated?: (item: ShoppingItem, tempId?: string) => void;
+  onOptimisticItemCreated?: (item: ShoppingItem) => void;
   onItemDeleted?: (itemId: string) => void;
 };
 
@@ -27,7 +28,7 @@ function formatDate(value?: string) {
   }).format(new Date(value));
 }
 
-export function AddItemForm({ listId, catalogProducts, onItemCreated, onItemDeleted }: AddItemFormProps) {
+export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimisticItemCreated, onItemDeleted }: AddItemFormProps) {
   const [pending, startTransition] = useTransition();
   const availableProducts = useMemo(() => catalogProducts.filter((product) => product.active !== false), [catalogProducts]);
   const [name, setName] = useState("");
@@ -48,6 +49,25 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onItemDele
     setSuccess(null);
 
     startTransition(async () => {
+      const tempId = `temp-${Date.now()}`;
+      const optimisticItem: ShoppingItem = {
+        id: tempId,
+        listId,
+        name,
+        normalizedName: (selectedProduct?.normalizedName ?? name.trim().toLowerCase()).trim(),
+        quantity: quantity || null,
+        unit: unit || selectedProduct?.defaultUnit || null,
+        status: "pending",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        checkedAt: null
+      };
+
+      onOptimisticItemCreated?.(optimisticItem);
+      setName("");
+      setQuantity("");
+      setUnit("");
+
       try {
         const response = await fetch("/api/items", {
           method: "POST",
@@ -69,14 +89,12 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onItemDele
           throw new Error(payload.error || "No se pudo guardar el producto.");
         }
 
-        onItemCreated?.(payload.item);
+        onItemCreated?.(payload.item, tempId);
         setDuplicateNotice(payload.duplicateNotice ?? null);
         setCreatedItemId(payload.item.id);
         setSuccess("Producto anadido.");
-        setName("");
-        setQuantity("");
-        setUnit("");
       } catch (submitError) {
+        onItemDeleted?.(tempId);
         setError(submitError instanceof Error ? submitError.message : "No se pudo guardar el producto.");
       }
     });
