@@ -5,8 +5,8 @@ import { ShoppingList } from "@/types/shopping";
 
 type CreateListFormProps = {
   onOptimisticListCreated?: (list: ShoppingList) => void;
-  onListCreated?: (list: ShoppingList, tempId?: string) => void;
-  onListCreationFailed?: (tempId: string) => void;
+  onListCreated?: (list: ShoppingList) => void;
+  onListCreationFailed?: (listId: string) => void;
 };
 
 export function CreateListForm({ onOptimisticListCreated, onListCreated, onListCreationFailed }: CreateListFormProps) {
@@ -29,11 +29,11 @@ export function CreateListForm({ onOptimisticListCreated, onListCreated, onListC
     setError(null);
     setSuccess(null);
 
-    const tempId = `temp-list-${Date.now()}`;
+    const listId = crypto.randomUUID();
     const now = new Date().toISOString();
     const nextReminderDate = showReminderDate ? reminderDate || shoppingDate : null;
     const optimisticList: ShoppingList = {
-      id: tempId,
+      id: listId,
       title: title.trim() || "Lista de compra",
       shoppingDate,
       reminderDate: nextReminderDate,
@@ -56,6 +56,7 @@ export function CreateListForm({ onOptimisticListCreated, onListCreated, onListC
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
+            id: listId,
             title,
             shoppingDate,
             reminderDate: showReminderDate ? reminderDate || shoppingDate : ""
@@ -69,9 +70,9 @@ export function CreateListForm({ onOptimisticListCreated, onListCreated, onListC
         }
 
         setSuccess("Lista creada.");
-        onListCreated?.(payload.list, tempId);
+        onListCreated?.(payload.list);
       } catch (submitError) {
-        onListCreationFailed?.(tempId);
+        onListCreationFailed?.(listId);
         setError(submitError instanceof Error ? submitError.message : "No se pudo crear la lista.");
         setSuccess(null);
       }

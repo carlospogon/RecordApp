@@ -6,14 +6,13 @@ import { ProductCatalogItem, ShoppingDuplicateNotice, ShoppingItem } from "@/typ
 type AddItemFormProps = {
   listId: string;
   catalogProducts: ProductCatalogItem[];
-  onItemCreated?: (item: ShoppingItem, tempId?: string) => void;
+  onItemCreated?: (item: ShoppingItem) => void;
   onOptimisticItemCreated?: (item: ShoppingItem) => void;
   onItemDeleted?: (itemId: string) => void;
 };
 
 type CreateItemResponse = {
   item: ShoppingItem;
-  duplicateNotice?: ShoppingDuplicateNotice | null;
 };
 
 function formatDate(value?: string) {
@@ -54,9 +53,9 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
       return;
     }
 
-    const tempId = `temp-item-${Date.now()}`;
+    const itemId = crypto.randomUUID();
     const optimisticItem: ShoppingItem = {
-      id: tempId,
+      id: itemId,
       listId,
       name,
       normalizedName: (selectedProduct?.normalizedName ?? name.trim().toLowerCase()).trim(),
@@ -81,6 +80,7 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
+            id: itemId,
             listId,
             productId: selectedProduct?.id ?? "",
             name,
@@ -95,12 +95,24 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
           throw new Error(payload.error || "No se pudo guardar el producto.");
         }
 
-        onItemCreated?.(payload.item, tempId);
-        setDuplicateNotice(payload.duplicateNotice ?? null);
+        onItemCreated?.(payload.item);
         setCreatedItemId(payload.item.id);
         setSuccess("Producto anadido.");
+
+        fetch(`/api/items/duplicate?name=${encodeURIComponent(payload.item.name)}`)
+          .then((duplicateResponse) => (duplicateResponse.ok ? duplicateResponse.json() : null))
+          .then((duplicatePayload) => {
+            if (duplicatePayload?.duplicateNotice) {
+              setDuplicateNotice(duplicatePayload.duplicateNotice as ShoppingDuplicateNotice);
+            } else {
+              setDuplicateNotice(null);
+            }
+          })
+          .catch(() => {
+            setDuplicateNotice(null);
+          });
       } catch (submitError) {
-        onItemDeleted?.(tempId);
+        onItemDeleted?.(itemId);
         setError(submitError instanceof Error ? submitError.message : "No se pudo guardar el producto.");
       }
     });

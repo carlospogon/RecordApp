@@ -46,13 +46,13 @@ function FlowCard({
 }: {
   currentList: ShoppingList | null;
   catalogProducts: ProductCatalogItem[];
-  onItemCreated: (item: ShoppingItem, tempId?: string) => void;
+  onItemCreated: (item: ShoppingItem) => void;
   onOptimisticItemCreated: (item: ShoppingItem) => void;
   onItemDeleted: (itemId: string) => void;
   onFinalizeList: (listId: string) => Promise<void> | void;
-  onListCreated: (list: ShoppingList, tempId?: string) => void;
+  onListCreated: (list: ShoppingList) => void;
   onOptimisticListCreated: (list: ShoppingList) => void;
-  onListCreationFailed: (tempId: string) => void;
+  onListCreationFailed: (listId: string) => void;
 }) {
   const [pendingFinalize, startFinalizeTransition] = useTransition();
 
@@ -436,15 +436,8 @@ export function DashboardShell({
     incrementListCount(item.listId, 1);
   }
 
-  function handleItemCreated(item: ShoppingItem, tempId?: string) {
-    setLocalItems((previous) => {
-      if (tempId && previous.some((current) => current.id === tempId)) {
-        return previous.map((current) => (current.id === tempId ? item : current));
-      }
-
-      incrementListCount(item.listId, 1);
-      return [...previous, item];
-    });
+  function handleItemCreated(item: ShoppingItem) {
+    setLocalItems((previous) => (previous.some((current) => current.id === item.id) ? previous : [...previous, item]));
   }
 
   function handleItemDeleted(itemId: string) {
@@ -494,35 +487,21 @@ export function DashboardShell({
     syncListUrl(list.id);
   }
 
-  function handleListCreated(list: ShoppingList, tempId?: string) {
-    setLocalCurrentList((previous) => (previous?.id === tempId ? list : previous));
+  function handleListCreated(list: ShoppingList) {
+    setLocalCurrentList((previous) => (previous?.id === list.id ? list : previous));
     setLocalSelectedListId(list.id);
-    setLocalLists((previous) =>
-      tempId ? previous.map((entry) => (entry.id === tempId ? list : entry)) : [list, ...previous]
-    );
-    setLocalScheduledListReminders((previous) =>
-      previous.map((reminder) =>
-        reminder.listId === tempId
-          ? {
-              ...reminder,
-              listId: list.id,
-              title: list.title,
-              shoppingDate: list.shoppingDate,
-              reminderDate: list.reminderDate ?? reminder.reminderDate
-            }
-          : reminder
-      )
-    );
+    setLocalLists((previous) => previous.map((entry) => (entry.id === list.id ? list : entry)));
+    setLocalScheduledListReminders((previous) => previous);
 
     syncListUrl(list.id);
   }
 
-  function handleListCreationFailed(tempId: string) {
-    setLocalLists((previous) => previous.filter((list) => list.id !== tempId));
-    setLocalScheduledListReminders((previous) => previous.filter((reminder) => reminder.listId !== tempId));
-    setLocalCurrentList((previous) => (previous?.id === tempId ? null : previous));
-    setLocalSelectedListId((previous) => (previous === tempId ? null : previous));
-    setLocalItems((previous) => (localCurrentList?.id === tempId ? [] : previous));
+  function handleListCreationFailed(listId: string) {
+    setLocalLists((previous) => previous.filter((list) => list.id !== listId));
+    setLocalScheduledListReminders((previous) => previous.filter((reminder) => reminder.listId !== listId));
+    setLocalCurrentList((previous) => (previous?.id === listId ? null : previous));
+    setLocalSelectedListId((previous) => (previous === listId ? null : previous));
+    setLocalItems((previous) => (localCurrentList?.id === listId ? [] : previous));
     syncListUrl(null);
   }
 
