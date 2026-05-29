@@ -123,7 +123,10 @@ function ToggleItemCheckbox({
       disabled={pending}
       onClick={() => {
         const nextChecked = !optimisticChecked;
+        const nextStatus: ShoppingItem["status"] = nextChecked ? "bought" : "pending";
+        const nextCheckedAt = nextChecked ? new Date().toISOString() : null;
         setOptimisticChecked(nextChecked);
+        onToggle(itemId, nextStatus, nextCheckedAt);
 
         startTransition(async () => {
           try {
@@ -131,6 +134,7 @@ function ToggleItemCheckbox({
             onToggle(itemId, result.status, result.checkedAt ?? checkedAt ?? null);
           } catch {
             setOptimisticChecked(!nextChecked);
+            onToggle(itemId, checked ? "bought" : "pending", checkedAt ?? null);
           }
         });
       }}

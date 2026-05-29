@@ -40,7 +40,9 @@ function FlowCard({
   onOptimisticItemCreated,
   onItemDeleted,
   onFinalizeList,
-  onListCreated
+  onListCreated,
+  onOptimisticListCreated,
+  onListCreationFailed
 }: {
   currentList: ShoppingList | null;
   catalogProducts: ProductCatalogItem[];
@@ -48,7 +50,9 @@ function FlowCard({
   onOptimisticItemCreated: (item: ShoppingItem) => void;
   onItemDeleted: (itemId: string) => void;
   onFinalizeList: (listId: string) => Promise<void> | void;
-  onListCreated: (list: ShoppingList) => void;
+  onListCreated: (list: ShoppingList, tempId?: string) => void;
+  onOptimisticListCreated: (list: ShoppingList) => void;
+  onListCreationFailed: (tempId: string) => void;
 }) {
   const [pendingFinalize, startFinalizeTransition] = useTransition();
 
@@ -60,7 +64,11 @@ function FlowCard({
           <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--text)]">Crea tu primera lista</h2>
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Empieza por una lista nueva. En cuanto la crees, pasaras al Paso 2.</p>
         </div>
-        <CreateListForm onListCreated={onListCreated} />
+        <CreateListForm
+          onOptimisticListCreated={onOptimisticListCreated}
+          onListCreated={onListCreated}
+          onListCreationFailed={onListCreationFailed}
+        />
       </section>
     );
   }
@@ -450,7 +458,20 @@ export function DashboardShell({
     });
   }
 
-  function handleListCreated(list: ShoppingList) {
+  function syncListUrl(listId: string | null) {
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (listId) {
+        url.searchParams.set("list", listId);
+      } else {
+        url.searchParams.delete("list");
+      }
+      url.searchParams.set("tab", "lista");
+      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+  }
+
+  function handleOptimisticListCreated(list: ShoppingList) {
     setLocalCurrentList(list);
     setLocalSelectedListId(list.id);
     setLocalItems([]);
@@ -470,12 +491,39 @@ export function DashboardShell({
       ]);
     }
 
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.set("list", list.id);
-      url.searchParams.set("tab", "lista");
-      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-    }
+    syncListUrl(list.id);
+  }
+
+  function handleListCreated(list: ShoppingList, tempId?: string) {
+    setLocalCurrentList((previous) => (previous?.id === tempId ? list : previous));
+    setLocalSelectedListId(list.id);
+    setLocalLists((previous) =>
+      tempId ? previous.map((entry) => (entry.id === tempId ? list : entry)) : [list, ...previous]
+    );
+    setLocalScheduledListReminders((previous) =>
+      previous.map((reminder) =>
+        reminder.listId === tempId
+          ? {
+              ...reminder,
+              listId: list.id,
+              title: list.title,
+              shoppingDate: list.shoppingDate,
+              reminderDate: list.reminderDate ?? reminder.reminderDate
+            }
+          : reminder
+      )
+    );
+
+    syncListUrl(list.id);
+  }
+
+  function handleListCreationFailed(tempId: string) {
+    setLocalLists((previous) => previous.filter((list) => list.id !== tempId));
+    setLocalScheduledListReminders((previous) => previous.filter((reminder) => reminder.listId !== tempId));
+    setLocalCurrentList((previous) => (previous?.id === tempId ? null : previous));
+    setLocalSelectedListId((previous) => (previous === tempId ? null : previous));
+    setLocalItems((previous) => (localCurrentList?.id === tempId ? [] : previous));
+    syncListUrl(null);
   }
 
   function handleItemToggled(itemId: string, nextStatus: ShoppingItem["status"], nextCheckedAt: string | null) {
@@ -632,6 +680,8 @@ export function DashboardShell({
             onItemDeleted={handleItemDeleted}
             onFinalizeList={handleFinalizeList}
             onListCreated={handleListCreated}
+            onOptimisticListCreated={handleOptimisticListCreated}
+            onListCreationFailed={handleListCreationFailed}
           />
           {localCurrentList ? (
             <section className="rounded-[28px] bg-white p-4 shadow-[0_16px_40px_rgba(18,40,28,0.08)] sm:p-5">

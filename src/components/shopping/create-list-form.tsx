@@ -4,10 +4,12 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { ShoppingList } from "@/types/shopping";
 
 type CreateListFormProps = {
-  onListCreated?: (list: ShoppingList) => void;
+  onOptimisticListCreated?: (list: ShoppingList) => void;
+  onListCreated?: (list: ShoppingList, tempId?: string) => void;
+  onListCreationFailed?: (tempId: string) => void;
 };
 
-export function CreateListForm({ onListCreated }: CreateListFormProps) {
+export function CreateListForm({ onOptimisticListCreated, onListCreated, onListCreationFailed }: CreateListFormProps) {
   const [pending, startTransition] = useTransition();
   const defaultDate = new Date().toISOString().slice(0, 10);
   const [shoppingDate, setShoppingDate] = useState(defaultDate);
@@ -26,6 +28,25 @@ export function CreateListForm({ onListCreated }: CreateListFormProps) {
     event.preventDefault();
     setError(null);
     setSuccess(null);
+
+    const tempId = `temp-list-${Date.now()}`;
+    const now = new Date().toISOString();
+    const nextReminderDate = showReminderDate ? reminderDate || shoppingDate : null;
+    const optimisticList: ShoppingList = {
+      id: tempId,
+      title: title.trim() || "Lista de compra",
+      shoppingDate,
+      reminderDate: nextReminderDate,
+      reminderSentAt: null,
+      createdAt: now,
+      updatedAt: now,
+      completedAt: null,
+      itemCount: 0
+    };
+
+    onOptimisticListCreated?.(optimisticList);
+    setTitle("");
+    setSuccess("Preparando lista...");
 
     startTransition(async () => {
       try {
@@ -47,11 +68,12 @@ export function CreateListForm({ onListCreated }: CreateListFormProps) {
           throw new Error(payload.error || "No se pudo crear la lista.");
         }
 
-        setTitle("");
         setSuccess("Lista creada.");
-        onListCreated?.(payload.list);
+        onListCreated?.(payload.list, tempId);
       } catch (submitError) {
+        onListCreationFailed?.(tempId);
         setError(submitError instanceof Error ? submitError.message : "No se pudo crear la lista.");
+        setSuccess(null);
       }
     });
   }

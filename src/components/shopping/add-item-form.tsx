@@ -42,32 +42,38 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
     () => availableProducts.find((product) => product.name.toLowerCase() === name.trim().toLowerCase()),
     [availableProducts, name]
   );
+  const listReady = !listId.startsWith("temp-list-");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setSuccess(null);
 
+    if (!listReady) {
+      setError("La lista se esta preparando todavia. Espera un instante.");
+      return;
+    }
+
+    const tempId = `temp-item-${Date.now()}`;
+    const optimisticItem: ShoppingItem = {
+      id: tempId,
+      listId,
+      name,
+      normalizedName: (selectedProduct?.normalizedName ?? name.trim().toLowerCase()).trim(),
+      quantity: quantity || null,
+      unit: unit || selectedProduct?.defaultUnit || null,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      checkedAt: null
+    };
+
+    onOptimisticItemCreated?.(optimisticItem);
+    setName("");
+    setQuantity("");
+    setUnit("");
+
     startTransition(async () => {
-      const tempId = `temp-${Date.now()}`;
-      const optimisticItem: ShoppingItem = {
-        id: tempId,
-        listId,
-        name,
-        normalizedName: (selectedProduct?.normalizedName ?? name.trim().toLowerCase()).trim(),
-        quantity: quantity || null,
-        unit: unit || selectedProduct?.defaultUnit || null,
-        status: "pending",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        checkedAt: null
-      };
-
-      onOptimisticItemCreated?.(optimisticItem);
-      setName("");
-      setQuantity("");
-      setUnit("");
-
       try {
         const response = await fetch("/api/items", {
           method: "POST",
@@ -204,10 +210,10 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
 
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || !listReady}
           className="rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {pending ? "Anadiendo..." : "Guardar producto"}
+          {!listReady ? "Preparando lista..." : pending ? "Anadiendo..." : "Guardar producto"}
         </button>
       </form>
 
