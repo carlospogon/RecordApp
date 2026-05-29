@@ -343,10 +343,15 @@ export function DashboardShell({
   pushPublicKey?: string;
   userDisplayName: string;
 }) {
+  const [localActiveTab, setLocalActiveTab] = useState(activeTab);
   const [localCurrentList, setLocalCurrentList] = useState(currentList);
   const [localItems, setLocalItems] = useState(items);
   const [localLists, setLocalLists] = useState(lists);
   const [localScheduledListReminders, setLocalScheduledListReminders] = useState(scheduledListReminders);
+
+  useEffect(() => {
+    setLocalActiveTab(activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     setLocalCurrentList(currentList);
@@ -515,6 +520,25 @@ export function DashboardShell({
     }
   }
 
+  function handleTabChange(nextTab: typeof activeTab) {
+    setLocalActiveTab(nextTab);
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", nextTab);
+
+    if (selectedListId) {
+      url.searchParams.set("list", selectedListId);
+    } else {
+      url.searchParams.delete("list");
+    }
+
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+
   return (
     <div className="mt-5 grid gap-5">
       <div className="overflow-x-auto">
@@ -523,31 +547,28 @@ export function DashboardShell({
             { id: "lista", label: "Lista" },
             { id: "historial", label: "Historial" },
             { id: "sugerencias", label: "Sugerencias" },
-            { id: "analisis", label: "Analisis" },
+            { id: "analisis", label: "Análisis" },
             { id: "resumen", label: "Resumen" }
           ].map((tab) => {
-            const active = activeTab === tab.id;
-            const href = {
-              pathname: "/app",
-              query: selectedListId ? { list: selectedListId, tab: tab.id } : { tab: tab.id }
-            };
+            const active = localActiveTab === tab.id;
 
             return (
-              <Link
+              <button
                 key={tab.id}
-                href={href}
+                type="button"
+                onClick={() => handleTabChange(tab.id as typeof activeTab)}
                 className={`shrink-0 rounded-full px-4 py-2.5 text-sm font-semibold transition ${
                   active ? "bg-[var(--surface-strong)] text-white" : "bg-white text-[var(--muted)] hover:bg-[var(--surface-soft)]"
                 }`}
               >
                 {tab.label}
-              </Link>
+              </button>
             );
           })}
         </div>
       </div>
 
-      {activeTab === "lista" ? (
+      {localActiveTab === "lista" ? (
         <>
           <FlowCard
             currentList={localCurrentList}
@@ -564,11 +585,11 @@ export function DashboardShell({
         </>
       ) : null}
 
-      {activeTab === "historial" ? (
+      {localActiveTab === "historial" ? (
         <ListsPanel lists={localLists} selectedListId={localCurrentList?.id ?? null} onDeleteList={handleDeleteLists} />
       ) : null}
 
-      {activeTab === "sugerencias" ? (
+      {localActiveTab === "sugerencias" ? (
         <RemindersPanel
           reminders={reminders}
           currentListId={localCurrentList?.id}
@@ -581,9 +602,9 @@ export function DashboardShell({
         />
       ) : null}
 
-      {activeTab === "analisis" ? <AnalysisPanel analysis={analysis} currentListId={localCurrentList?.id} /> : null}
+      {localActiveTab === "analisis" ? <AnalysisPanel analysis={analysis} currentListId={localCurrentList?.id} /> : null}
 
-      {activeTab === "resumen" ? (
+      {localActiveTab === "resumen" ? (
         <SummaryPanel
           items={localItems}
           lists={localLists}
