@@ -46,6 +46,9 @@ export async function POST(request: Request) {
   return NextResponse.json({
     list: {
       id,
+      ownerId: user.id,
+      shared: false,
+      accessRole: "owner",
       title,
       shoppingDate,
       reminderDate,

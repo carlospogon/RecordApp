@@ -34,6 +34,9 @@ export function CreateListForm({ onOptimisticListCreated, onListCreated, onListC
     const nextReminderDate = showReminderDate ? reminderDate || shoppingDate : null;
     const optimisticList: ShoppingList = {
       id: listId,
+      ownerId: "local-owner",
+      shared: false,
+      accessRole: "owner",
       title: title.trim() || "Lista de compra",
       shoppingDate,
       reminderDate: nextReminderDate,
