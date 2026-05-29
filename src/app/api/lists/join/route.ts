@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type JoinListPayload = {
   shareCode?: string;
@@ -14,6 +15,7 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
+  const admin = createSupabaseAdminClient();
   const {
     data: { user }
   } = await supabase.auth.getUser();
@@ -22,9 +24,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: invite, error: inviteError } = await supabase
+  const { data: invite, error: inviteError } = await admin
     .from("shopping_list_invites")
-    .select("list_id")
+    .select("list_id, expires_at")
     .eq("share_code", shareCode)
     .maybeSingle();
 
@@ -32,7 +34,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No hemos encontrado ninguna lista con ese codigo." }, { status: 404 });
   }
 
-  const { data: list, error: listError } = await supabase
+  if (invite.expires_at && new Date(invite.expires_at).getTime() < Date.now()) {
+    return NextResponse.json({ error: "Este codigo ha caducado." }, { status: 410 });
+  }
+
+  const { data: list, error: listError } = await admin
     .from("shopping_lists")
     .select("id, user_id, shared, title, shopping_date, reminder_date, reminder_sent_at, created_at, updated_at, completed_at")
     .eq("id", invite.list_id)
@@ -43,7 +49,7 @@ export async function POST(request: Request) {
   }
 
   if (list.user_id !== user.id) {
-    const { error: membershipError } = await supabase.from("shopping_list_members").upsert(
+    const { error: membershipError } = await admin.from("shopping_list_members").upsert(
       {
         list_id: list.id,
         user_id: user.id,
@@ -59,7 +65,7 @@ export async function POST(request: Request) {
     }
   }
 
-  await supabase.from("shopping_lists").update({ shared: true }).eq("id", list.id);
+  await admin.from("shopping_lists").update({ shared: true }).eq("id", list.id);
 
   return NextResponse.json({
     list: {
