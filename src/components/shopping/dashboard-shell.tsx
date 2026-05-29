@@ -18,7 +18,8 @@ import {
   ReminderSuggestion,
   ShoppingAnalysis,
   ShoppingItem,
-  ShoppingList
+  ShoppingList,
+  ShoppingListInvite
 } from "@/types/shopping";
 
 function formatDate(value?: string) {
@@ -42,7 +43,8 @@ function FlowCard({
   onFinalizeList,
   onListCreated,
   onOptimisticListCreated,
-  onListCreationFailed
+  onListCreationFailed,
+  onListJoined
 }: {
   currentList: ShoppingList | null;
   catalogProducts: ProductCatalogItem[];
@@ -53,8 +55,15 @@ function FlowCard({
   onListCreated: (list: ShoppingList) => void;
   onOptimisticListCreated: (list: ShoppingList) => void;
   onListCreationFailed: (listId: string) => void;
+  onListJoined: (list: ShoppingList) => void;
 }) {
   const [pendingFinalize, startFinalizeTransition] = useTransition();
+  const [shareInvite, setShareInvite] = useState<ShoppingListInvite | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [sharePending, startShareTransition] = useTransition();
+  const [joinCode, setJoinCode] = useState("");
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [joinPending, startJoinTransition] = useTransition();
 
   if (!currentList) {
     return (
@@ -69,6 +78,51 @@ function FlowCard({
           onListCreated={onListCreated}
           onListCreationFailed={onListCreationFailed}
         />
+        <div className="mt-4 rounded-[26px] border border-[var(--border)] bg-white p-5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Unirte a una lista</p>
+          <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">Pega un codigo compartido</h3>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <input
+              type="text"
+              value={joinCode}
+              onChange={(event) => setJoinCode(event.currentTarget.value.toUpperCase())}
+              placeholder="AB12CD34"
+              className="flex-1 rounded-[18px] border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
+            />
+            <button
+              type="button"
+              disabled={joinPending || !joinCode.trim()}
+              onClick={() => {
+                setJoinError(null);
+                startJoinTransition(async () => {
+                  try {
+                    const response = await fetch("/api/lists/join", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json"
+                      },
+                      body: JSON.stringify({ shareCode: joinCode })
+                    });
+                    const payload = (await response.json()) as { list?: ShoppingList; error?: string };
+
+                    if (!response.ok || !payload.list) {
+                      throw new Error(payload.error || "No se pudo unir a la lista.");
+                    }
+
+                    setJoinCode("");
+                    onListJoined(payload.list);
+                  } catch (error) {
+                    setJoinError(error instanceof Error ? error.message : "No se pudo unir a la lista.");
+                  }
+                });
+              }}
+              className="rounded-full bg-[var(--surface-strong)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1d3028] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {joinPending ? "Uniendo..." : "Unirme"}
+            </button>
+          </div>
+          {joinError ? <p className="mt-3 text-sm text-[#b44d4d]">{joinError}</p> : null}
+        </div>
       </section>
     );
   }
@@ -84,7 +138,39 @@ function FlowCard({
           </p>
         </div>
 
-        <div>
+        <div className="flex flex-wrap items-center gap-2">
+          {currentList.accessRole === "owner" ? (
+            <button
+              type="button"
+              disabled={sharePending}
+              onClick={() => {
+                setShareError(null);
+                startShareTransition(async () => {
+                  try {
+                    const response = await fetch(`/api/lists/${currentList.id}/share`, {
+                      method: "POST"
+                    });
+                    const payload = (await response.json()) as { invite?: ShoppingListInvite; error?: string };
+
+                    if (!response.ok || !payload.invite) {
+                      throw new Error(payload.error || "No se pudo generar el codigo.");
+                    }
+
+                    setShareInvite(payload.invite);
+                  } catch (error) {
+                    setShareError(error instanceof Error ? error.message : "No se pudo generar el codigo.");
+                  }
+                });
+              }}
+              className="rounded-full border border-[var(--border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--text)] transition hover:bg-[var(--surface-soft)]"
+            >
+              {sharePending ? "Generando..." : "Compartir lista"}
+            </button>
+          ) : currentList.shared ? (
+            <span className="rounded-full bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
+              Lista compartida
+            </span>
+          ) : null}
           <button
             type="button"
             disabled={pendingFinalize}
@@ -99,6 +185,25 @@ function FlowCard({
           </button>
         </div>
       </div>
+
+      {shareInvite ? (
+        <div className="mt-4 rounded-[22px] border border-[var(--border)] bg-white p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Codigo compartido</p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <code className="rounded-full bg-[var(--surface-soft)] px-4 py-2 text-sm font-semibold tracking-[0.2em] text-[var(--text)]">
+              {shareInvite.shareCode}
+            </code>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard?.writeText(shareInvite.shareCode)}
+              className="rounded-full border border-[var(--border)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text)] transition hover:bg-[var(--surface-soft)]"
+            >
+              Copiar
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {shareError ? <p className="mt-3 text-sm text-[#b44d4d]">{shareError}</p> : null}
 
       <div className="mt-5">
         <AddItemForm
@@ -505,6 +610,14 @@ export function DashboardShell({
     syncListUrl(null);
   }
 
+  function handleListJoined(list: ShoppingList) {
+    setLocalCurrentList(list);
+    setLocalSelectedListId(list.id);
+    setLocalItems([]);
+    setLocalLists((previous) => (previous.some((entry) => entry.id === list.id) ? previous : [list, ...previous]));
+    syncListUrl(list.id);
+  }
+
   function handleItemToggled(itemId: string, nextStatus: ShoppingItem["status"], nextCheckedAt: string | null) {
     setLocalItems((previous) =>
       previous.map((item) =>
@@ -661,6 +774,7 @@ export function DashboardShell({
             onListCreated={handleListCreated}
             onOptimisticListCreated={handleOptimisticListCreated}
             onListCreationFailed={handleListCreationFailed}
+            onListJoined={handleListJoined}
           />
           {localCurrentList ? (
             <section className="rounded-[28px] bg-white p-4 shadow-[0_16px_40px_rgba(18,40,28,0.08)] sm:p-5">

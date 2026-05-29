@@ -20,7 +20,6 @@ export async function POST(_: Request, context: RouteContext) {
     .from("shopping_items")
     .select("id, status")
     .eq("id", id)
-    .eq("user_id", user.id)
     .single();
 
   if (readError || !item) {
@@ -35,8 +34,7 @@ export async function POST(_: Request, context: RouteContext) {
       status: nextStatus,
       checked_at: checkedAt
     })
-    .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("id", id);
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });

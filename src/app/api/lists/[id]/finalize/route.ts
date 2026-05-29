@@ -17,13 +17,14 @@ export async function POST(_: Request, context: RouteContext) {
   }
 
   const completedAt = new Date().toISOString();
+  // RLS decides whether the authenticated user can update this list.
+  // Shared members will be able to finalize once the shared-list policies are active.
   const { error } = await supabase
     .from("shopping_lists")
     .update({
       completed_at: completedAt
     })
-    .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("id", id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

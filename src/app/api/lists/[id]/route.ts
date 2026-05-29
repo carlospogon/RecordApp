@@ -16,7 +16,9 @@ export async function DELETE(_: Request, context: RouteContext) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { error } = await supabase.from("shopping_lists").delete().eq("id", id).eq("user_id", user.id);
+  // RLS decides whether the authenticated user can delete this list.
+  // Only owners will pass the policy once shared lists are enabled.
+  const { error } = await supabase.from("shopping_lists").delete().eq("id", id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

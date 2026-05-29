@@ -19,8 +19,7 @@ export async function DELETE(_: Request, context: RouteContext) {
   const { error } = await supabase
     .from("shopping_items")
     .delete()
-    .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("id", id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

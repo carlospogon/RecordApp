@@ -10,11 +10,14 @@ import {
   ShoppingDashboardData,
   ShoppingDuplicateNotice,
   ShoppingItem,
-  ShoppingList
+  ShoppingList,
+  ShoppingListInvite
 } from "@/types/shopping";
 
 type ShoppingListRow = {
   id: string;
+  user_id?: string;
+  shared?: boolean | null;
   title: string;
   shopping_date: string;
   reminder_date?: string | null;
@@ -46,9 +49,17 @@ type ShoppingProductRow = {
   active: boolean;
 };
 
+type ShoppingListMemberRow = {
+  list_id: string;
+  role: "owner" | "editor";
+};
+
 function mapListRow(row: ShoppingListRow): ShoppingList {
   return {
     id: row.id,
+    ownerId: row.user_id,
+    shared: row.shared ?? false,
+    accessRole: row.user_id ? "owner" : null,
     title: row.title,
     shoppingDate: row.shopping_date,
     reminderDate: row.reminder_date ?? null,
@@ -151,13 +162,17 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
   }
 
   const supabase = await createSupabaseServerClient();
+  const { data: memberRows } = await supabase
+    .from("shopping_list_members")
+    .select("list_id, role");
+  const memberRoleByListId = new Map((memberRows ?? []).map((row) => [(row as ShoppingListMemberRow).list_id, (row as ShoppingListMemberRow).role]));
   let listsData: ShoppingListRow[] | null = null;
   let listError: { message: string } | null = null;
 
   try {
     const response = await supabase
       .from("shopping_lists")
-      .select("id, title, shopping_date, reminder_date, reminder_sent_at, created_at, updated_at, completed_at")
+      .select("id, user_id, shared, title, shopping_date, reminder_date, reminder_sent_at, created_at, updated_at, completed_at")
       .order("shopping_date", { ascending: false })
       .order("created_at", { ascending: false });
 
@@ -166,7 +181,7 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
   } catch {
     const fallbackResponse = await supabase
       .from("shopping_lists")
-      .select("id, title, shopping_date, created_at, updated_at")
+      .select("id, user_id, shared, title, shopping_date, created_at, updated_at")
       .order("shopping_date", { ascending: false })
       .order("created_at", { ascending: false });
 
@@ -197,6 +212,7 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
     const list = mapListRow(row as ShoppingListRow);
     return {
       ...list,
+      accessRole: row.user_id === user.id ? "owner" : memberRoleByListId.get(list.id) ?? null,
       itemCount: itemCountByListId[list.id] ?? 0
     };
   });
@@ -260,6 +276,36 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
     catalogProducts,
     analysis,
     selectedListId: currentList?.id ?? null
+  };
+}
+
+export async function getExistingInviteForList(listId: string): Promise<ShoppingListInvite | null> {
+  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return null;
+  }
+
+  const user = await requireAuthenticatedUser();
+
+  if (!user) {
+    return null;
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("shopping_list_invites")
+    .select("list_id, share_code")
+    .eq("list_id", listId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return {
+    listId: data.list_id,
+    shareCode: data.share_code
   };
 }
 

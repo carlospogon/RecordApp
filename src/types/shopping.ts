@@ -15,7 +15,10 @@ export type ProductCategory =
 
 export type ShoppingList = {
   id: string;
+  ownerId?: string;
   title: string;
+  shared?: boolean;
+  accessRole?: "owner" | "editor" | null;
   shoppingDate: string;
   reminderDate?: string | null;
   reminderSentAt?: string | null;
@@ -23,6 +26,11 @@ export type ShoppingList = {
   updatedAt: string;
   completedAt?: string | null;
   itemCount?: number;
+};
+
+export type ShoppingListInvite = {
+  listId: string;
+  shareCode: string;
 };
 
 export type ShoppingItem = {
