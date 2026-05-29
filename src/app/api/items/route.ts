@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { normalizeProductName } from "@/lib/shopping/normalize-product";
 
@@ -31,12 +32,23 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createSupabaseServerClient();
+  const admin = createSupabaseAdminClient();
   const {
     data: { user }
   } = await supabase.auth.getUser();
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { data: accessibleList, error: accessibleListError } = await supabase
+    .from("shopping_lists")
+    .select("id")
+    .eq("id", listId)
+    .maybeSingle();
+
+  if (accessibleListError || !accessibleList?.id) {
+    return NextResponse.json({ error: "No tienes acceso a esta lista." }, { status: 403 });
   }
 
   let finalUnit = unit || null;
@@ -77,7 +89,7 @@ export async function POST(request: Request) {
   }
 
   const now = new Date().toISOString();
-  const { error } = await supabase
+  const { error } = await admin
     .from("shopping_items")
     .insert({
       id,

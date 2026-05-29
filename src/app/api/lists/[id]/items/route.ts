@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -8,6 +9,7 @@ type RouteContext = {
 export async function GET(_: Request, context: RouteContext) {
   const { id } = await context.params;
   const supabase = await createSupabaseServerClient();
+  const admin = createSupabaseAdminClient();
   const {
     data: { user }
   } = await supabase.auth.getUser();
@@ -16,7 +18,17 @@ export async function GET(_: Request, context: RouteContext) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data, error } = await supabase
+  const { data: accessibleList, error: accessibleListError } = await supabase
+    .from("shopping_lists")
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (accessibleListError || !accessibleList?.id) {
+    return NextResponse.json({ error: "No tienes acceso a esta lista." }, { status: 403 });
+  }
+
+  const { data, error } = await admin
     .from("shopping_items")
     .select("id, list_id, name, normalized_name, quantity, unit, status, created_at, updated_at, checked_at")
     .eq("list_id", id)

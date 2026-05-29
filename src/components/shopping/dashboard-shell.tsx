@@ -573,6 +573,59 @@ export function DashboardShell({
     };
   }, [localCurrentList?.id]);
 
+  useEffect(() => {
+    if (!localCurrentList?.id || localCurrentList.id.startsWith("temp-list-") || !localCurrentList.shared) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const syncItems = async () => {
+      try {
+        const response = await fetch(`/api/lists/${localCurrentList.id}/items`, {
+          cache: "no-store"
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as { items?: ShoppingItem[] };
+
+        if (!cancelled && payload.items) {
+          setLocalItems(payload.items);
+          setLocalCurrentList((previous) =>
+            previous && previous.id === localCurrentList.id
+              ? {
+                  ...previous,
+                  itemCount: payload.items?.length ?? 0
+                }
+              : previous
+          );
+          setLocalLists((previous) =>
+            previous.map((list) =>
+              list.id === localCurrentList.id
+                ? {
+                    ...list,
+                    itemCount: payload.items?.length ?? 0
+                  }
+                : list
+            )
+          );
+        }
+      } catch {
+        return;
+      }
+    };
+
+    const interval = window.setInterval(syncItems, 2500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [localCurrentList?.id, localCurrentList?.shared]);
+
   const localFrequentProducts = useMemo<ProductInsight[]>(() => {
     const appearances = new Map<string, { displayName: string; count: number }>();
 
