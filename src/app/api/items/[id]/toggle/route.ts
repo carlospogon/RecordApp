@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getAccessibleItemForUser } from "@/lib/supabase/shared-access";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -8,6 +10,7 @@ type RouteContext = {
 export async function POST(_: Request, context: RouteContext) {
   const { id } = await context.params;
   const supabase = await createSupabaseServerClient();
+  const admin = createSupabaseAdminClient();
   const {
     data: { user }
   } = await supabase.auth.getUser();
@@ -16,7 +19,13 @@ export async function POST(_: Request, context: RouteContext) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: item, error: readError } = await supabase
+  const accessibleItem = await getAccessibleItemForUser(id, user.id);
+
+  if (!accessibleItem) {
+    return NextResponse.json({ error: "Item not found" }, { status: 404 });
+  }
+
+  const { data: item, error: readError } = await admin
     .from("shopping_items")
     .select("id, status")
     .eq("id", id)
@@ -28,7 +37,7 @@ export async function POST(_: Request, context: RouteContext) {
 
   const nextStatus = item.status === "bought" ? "pending" : "bought";
   const checkedAt = nextStatus === "bought" ? new Date().toISOString() : null;
-  const { error: updateError } = await supabase
+  const { error: updateError } = await admin
     .from("shopping_items")
     .update({
       status: nextStatus,

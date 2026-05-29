@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { normalizeProductName } from "@/lib/shopping/normalize-product";
+import { getAccessibleListForUser } from "@/lib/supabase/shared-access";
 
 type CreateItemPayload = {
   id?: string;
@@ -41,13 +42,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: accessibleList, error: accessibleListError } = await supabase
-    .from("shopping_lists")
-    .select("id")
-    .eq("id", listId)
-    .maybeSingle();
+  const accessibleList = await getAccessibleListForUser(listId, user.id);
 
-  if (accessibleListError || !accessibleList?.id) {
+  if (!accessibleList?.id) {
     return NextResponse.json({ error: "No tienes acceso a esta lista." }, { status: 403 });
   }
 
