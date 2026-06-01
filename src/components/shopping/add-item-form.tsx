@@ -146,7 +146,7 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
   }
 
   return (
-    <div className="grid gap-4 rounded-[26px] border border-[var(--border)] bg-[var(--surface-soft)] p-5">
+    <div className="grid gap-4 rounded-[26px] border border-[var(--border)] bg-[rgba(250,249,246,0.9)] p-5">
       <form onSubmit={handleSubmit} className="grid gap-4">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Anadir producto</p>

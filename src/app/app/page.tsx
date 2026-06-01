@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/shopping/dashboard-shell";
 import { signOutAction } from "@/app/app/actions";
@@ -60,20 +61,30 @@ export default async function AppPage({
   const userDisplayName = getUserDisplayName(data.userEmail);
 
   return (
-    <main className="min-h-screen px-3 py-4 sm:px-6 sm:py-8">
-      <div className="mx-auto max-w-5xl rounded-[36px] border border-white/60 bg-[rgba(255,255,255,0.45)] p-3 shadow-[0_30px_100px_rgba(12,28,22,0.12)] backdrop-blur sm:p-5">
-        <div className="rounded-[30px] bg-[var(--surface-strong)] p-4 sm:p-5">
-          <header className="rounded-[26px] bg-[linear-gradient(135deg,#12211b_0%,#1a2b24_100%)] px-5 py-5 text-white sm:px-6">
+    <main className="relative min-h-screen overflow-hidden px-3 py-4 sm:px-6 sm:py-8">
+      <div className="absolute inset-0">
+        <Image
+          src="/app-mindful-background.jpg"
+          alt="Despensa y cocina organizada"
+          fill
+          priority
+          className="object-cover object-center"
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(250,249,246,0.18)_0%,rgba(250,249,246,0.28)_55%,rgba(250,249,246,0.86)_100%)]" />
+      </div>
+
+      <div className="relative z-10 mx-auto max-w-5xl rounded-[34px] border border-white/55 bg-[rgba(250,249,246,0.78)] p-4 shadow-[0_28px_70px_rgba(74,97,80,0.10)] backdrop-blur-[20px] sm:p-6">
+          <header className="rounded-[26px] border border-white/55 bg-[rgba(255,255,255,0.74)] px-5 py-5 text-[var(--text)] backdrop-blur-[18px] sm:px-6">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8fe0b5]">RecordApp</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">RecordApp</p>
                 <h1 className="mt-3 text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">Hola, {userDisplayName}!</h1>
               </div>
 
               <form action={signOutAction}>
                 <button
                   type="submit"
-                  className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+                  className="rounded-full border border-[var(--border)] bg-white/88 px-4 py-2 text-sm font-semibold text-[var(--accent-strong)] transition hover:bg-white"
                 >
                   Cerrar sesion
                 </button>
@@ -96,7 +107,6 @@ export default async function AppPage({
             pushPublicKey={env.NEXT_PUBLIC_VAPID_PUBLIC_KEY}
             userDisplayName={userDisplayName}
           />
-        </div>
       </div>
     </main>
   );

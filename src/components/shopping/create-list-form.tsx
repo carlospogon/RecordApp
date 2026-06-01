@@ -83,7 +83,7 @@ export function CreateListForm({ onOptimisticListCreated, onListCreated, onListC
   }
 
   return (
-    <form onSubmit={handleSubmit} className="grid gap-4 rounded-[26px] border border-[var(--border)] bg-[var(--surface-soft)] p-5">
+    <form onSubmit={handleSubmit} className="grid gap-4 rounded-[26px] border border-[var(--border)] bg-[rgba(250,249,246,0.9)] p-5">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Nueva lista</p>
         <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">Prepara una compra nueva</h3>

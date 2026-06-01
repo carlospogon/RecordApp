@@ -83,7 +83,7 @@ function FlowCard({
 
   if (!currentList) {
     return (
-      <section className="rounded-[28px] bg-[linear-gradient(180deg,#f8fcf8_0%,#eef6f0_100%)] p-5 shadow-[0_16px_40px_rgba(18,40,28,0.08)]">
+      <section className="rounded-[28px] border border-[rgba(115,121,114,0.16)] bg-[rgba(255,255,255,0.78)] p-5 shadow-[0_18px_36px_rgba(74,97,80,0.08)] backdrop-blur-[14px]">
         <div className="mb-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Paso 1</p>
           <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--text)]">Crea tu primera lista</h2>
@@ -94,7 +94,7 @@ function FlowCard({
           onListCreated={onListCreated}
           onListCreationFailed={onListCreationFailed}
         />
-        <div className="mt-4 rounded-[26px] border border-[var(--border)] bg-white p-5">
+        <div className="mt-4 rounded-[26px] border border-[var(--border)] bg-[rgba(250,249,246,0.88)] p-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Unirte a una lista</p>
           <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">Pega un codigo compartido</h3>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
@@ -144,7 +144,7 @@ function FlowCard({
   }
 
   return (
-    <section className="rounded-[28px] bg-[linear-gradient(180deg,#f8fcf8_0%,#eef6f0_100%)] p-5 shadow-[0_16px_40px_rgba(18,40,28,0.08)]">
+    <section className="rounded-[28px] border border-[rgba(115,121,114,0.16)] bg-[rgba(255,255,255,0.78)] p-5 shadow-[0_18px_36px_rgba(74,97,80,0.08)] backdrop-blur-[14px]">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Paso 2</p>
@@ -882,7 +882,7 @@ export function DashboardShell({
   return (
     <div className="mt-5 grid gap-5">
       <div className="overflow-x-auto">
-        <div className="inline-flex min-w-full flex-nowrap gap-2 rounded-[22px] bg-[linear-gradient(180deg,#f8fcf8_0%,#eef6f0_100%)] p-2 shadow-[0_16px_40px_rgba(18,40,28,0.08)] sm:min-w-0 sm:flex-wrap">
+        <div className="inline-flex min-w-full flex-nowrap gap-2 rounded-[22px] border border-[rgba(115,121,114,0.14)] bg-[rgba(255,255,255,0.72)] p-2 shadow-[0_14px_30px_rgba(74,97,80,0.06)] backdrop-blur-[12px] sm:min-w-0 sm:flex-wrap">
           {[
             { id: "lista", label: "Lista" },
             { id: "historial", label: "Historial" },
@@ -898,7 +898,7 @@ export function DashboardShell({
                 type="button"
                 onClick={() => handleTabChange(tab.id as typeof activeTab)}
                 className={`shrink-0 rounded-full px-4 py-2.5 text-sm font-semibold transition ${
-                  active ? "bg-[var(--surface-strong)] text-white" : "bg-white text-[var(--muted)] hover:bg-[var(--surface-soft)]"
+                  active ? "bg-[var(--surface-strong)] text-white" : "bg-[rgba(250,249,246,0.88)] text-[var(--muted)] hover:bg-white"
                 }`}
               >
                 {tab.label}

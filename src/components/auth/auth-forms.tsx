@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { Be_Vietnam_Pro, Plus_Jakarta_Sans } from "next/font/google";
 import {
   signInAction,
   signInWithGoogleAction,
@@ -10,12 +11,22 @@ import {
 
 const initialAuthActionState: AuthActionState = {};
 
+const displayFont = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["600", "700"]
+});
+
+const bodyFont = Be_Vietnam_Pro({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"]
+});
+
 function SubmitButton({ pending, label }: { pending: boolean; label: string }) {
   return (
     <button
       type="submit"
       disabled={pending}
-      className="rounded-full bg-[linear-gradient(180deg,#11814f_0%,#0c6c42_100%)] px-5 py-3 text-sm font-semibold text-white transition hover:translate-y-[-1px] disabled:cursor-not-allowed disabled:opacity-60"
+      className={`${displayFont.className} rounded-full bg-[linear-gradient(180deg,#b97055_0%,#ab634a_100%)] px-6 py-4 text-base font-semibold text-white shadow-[0_16px_30px_rgba(134,77,53,0.18)] transition hover:translate-y-[-1px] disabled:cursor-not-allowed disabled:opacity-60`}
     >
       {pending ? "Procesando..." : label}
     </button>
@@ -24,11 +35,11 @@ function SubmitButton({ pending, label }: { pending: boolean; label: string }) {
 
 function AuthStateMessage({ state }: { state: AuthActionState }) {
   if (state.error) {
-    return <p className="rounded-2xl border border-[#e9b1b1] bg-[#fff3f3] px-4 py-3 text-sm text-[#b44d4d]">{state.error}</p>;
+    return <p className="rounded-[20px] border border-[#e7c8be] bg-[rgba(255,244,240,0.92)] px-4 py-3 text-sm text-[#a45f4a]">{state.error}</p>;
   }
 
   if (state.success) {
-    return <p className="rounded-2xl border border-[#cfe7d8] bg-[#eff8f2] px-4 py-3 text-sm text-[#1e6d45]">{state.success}</p>;
+    return <p className="rounded-[20px] border border-[#d8e2d7] bg-[rgba(246,243,238,0.92)] px-4 py-3 text-sm text-[#4f6a56]">{state.success}</p>;
   }
 
   return null;
@@ -41,13 +52,13 @@ export function AuthForms({ initialMode = "signin" }: { initialMode?: "signin" |
   const isSignIn = mode === "signin";
 
   return (
-    <section className="rounded-[30px] border border-[#d7e7db] bg-white/92 p-6 shadow-[0_24px_50px_rgba(23,54,38,0.08)]">
-      <div className="flex gap-2 rounded-full border border-[#d7e7db] bg-[#f7fbf8] p-1">
+    <section className={`rounded-[32px] border border-white/60 bg-[rgba(255,255,255,0.82)] p-6 backdrop-blur-[22px] shadow-[0_30px_70px_rgba(74,97,80,0.10)] sm:p-8 ${bodyFont.className}`}>
+      <div className="flex gap-2 rounded-full border border-[#ebe3d2] bg-[rgba(250,249,246,0.72)] p-1">
         <button
           type="button"
           onClick={() => setMode("signin")}
           className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition ${
-            isSignIn ? "bg-[#dbff5e] text-[#13261f]" : "text-[#6f8d7d] hover:text-[#173025]"
+            isSignIn ? "bg-[#4a6150] text-white shadow-[0_10px_20px_rgba(74,97,80,0.18)]" : "text-[#7c7567] hover:text-[#4a6150]"
           }`}
         >
           Iniciar sesion
@@ -56,7 +67,7 @@ export function AuthForms({ initialMode = "signin" }: { initialMode?: "signin" |
           type="button"
           onClick={() => setMode("signup")}
           className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition ${
-            !isSignIn ? "bg-[#dbff5e] text-[#13261f]" : "text-[#6f8d7d] hover:text-[#173025]"
+            !isSignIn ? "bg-[#4a6150] text-white shadow-[0_10px_20px_rgba(74,97,80,0.18)]" : "text-[#7c7567] hover:text-[#4a6150]"
           }`}
         >
           Crear cuenta
@@ -65,7 +76,7 @@ export function AuthForms({ initialMode = "signin" }: { initialMode?: "signin" |
 
       <form action={isSignIn ? signInFormAction : signUpFormAction} className="mt-6 space-y-4">
         <div className="space-y-2">
-          <label htmlFor="email" className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6f8d7d]">
+          <label htmlFor="email" className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6d766e]">
             Email
           </label>
           <input
@@ -73,12 +84,12 @@ export function AuthForms({ initialMode = "signin" }: { initialMode?: "signin" |
             name="email"
             type="email"
             required
-            className="w-full rounded-2xl border border-[#d7e7db] bg-[#f9fcfa] px-4 py-3 text-sm text-[#173025] outline-none transition focus:border-[#1d8f59]"
+            className="w-full rounded-[20px] border border-[#ece6da] bg-[rgba(250,249,246,0.92)] px-4 py-3 text-sm text-[#1a1c1a] outline-none transition focus:border-[#4a6150]"
           />
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="password" className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6f8d7d]">
+          <label htmlFor="password" className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6d766e]">
             Contrasena
           </label>
           <input
@@ -87,7 +98,7 @@ export function AuthForms({ initialMode = "signin" }: { initialMode?: "signin" |
             type="password"
             required
             minLength={6}
-            className="w-full rounded-2xl border border-[#d7e7db] bg-[#f9fcfa] px-4 py-3 text-sm text-[#173025] outline-none transition focus:border-[#1d8f59]"
+            className="w-full rounded-[20px] border border-[#ece6da] bg-[rgba(250,249,246,0.92)] px-4 py-3 text-sm text-[#1a1c1a] outline-none transition focus:border-[#4a6150]"
           />
         </div>
 
@@ -95,11 +106,11 @@ export function AuthForms({ initialMode = "signin" }: { initialMode?: "signin" |
         <SubmitButton pending={isSignIn ? signInPending : signUpPending} label={isSignIn ? "Entrar" : "Crear cuenta"} />
       </form>
 
-      <div className="mt-6 border-t border-[#e1ece4] pt-6">
+      <div className="mt-6 border-t border-[#eee7db] pt-6">
         <form action={signInWithGoogleAction}>
           <button
             type="submit"
-            className="w-full rounded-full border border-[#d7e7db] bg-white px-5 py-3 text-sm font-semibold text-[#173025] transition hover:border-[#1d8f59] hover:text-[#1d8f59]"
+            className={`${displayFont.className} w-full rounded-full border border-[#ebe3d2] bg-[rgba(255,255,255,0.88)] px-5 py-4 text-base font-semibold text-[#4f574f] transition hover:border-[#4a6150] hover:text-[#4a6150]`}
           >
             Continuar con Google
           </button>
