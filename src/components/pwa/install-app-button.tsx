@@ -53,7 +53,7 @@ export function InstallAppButton() {
     <button
       type="button"
       onClick={handleInstall}
-      className="rounded-full bg-lime px-4 py-2 text-sm font-semibold text-[#10150f] transition hover:bg-[#e2ff8f]"
+      className="w-full rounded-full border border-[#e7dcc9] bg-[linear-gradient(180deg,#f6efde_0%,#efe6d2_100%)] px-5 py-4 text-base font-semibold text-[#6b6251] shadow-[0_10px_24px_rgba(80,68,45,0.08)] transition hover:translate-y-[-1px] hover:shadow-[0_14px_30px_rgba(80,68,45,0.12)]"
     >
       Instalar app
     </button>
