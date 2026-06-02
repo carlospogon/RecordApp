@@ -142,6 +142,8 @@ export type ShoppingDuplicateNotice = {
 
 export type ShoppingDashboardData = {
   userEmail: string;
+  userName: string;
+  userAvatarUrl?: string | null;
   currentList: ShoppingList | null;
   lists: ShoppingList[];
   spaces: ShoppingSpace[];
