@@ -20,7 +20,8 @@ import {
   ShoppingAnalysis,
   ShoppingItem,
   ShoppingList,
-  ShoppingListInvite
+  ShoppingListInvite,
+  ShoppingSpace
 } from "@/types/shopping";
 
 function formatDate(value?: string) {
@@ -52,6 +53,8 @@ function mapRealtimeItem(row: Record<string, unknown>): ShoppingItem {
 
 function FlowCard({
   currentList,
+  spaces,
+  selectedSpaceId,
   catalogProducts,
   onItemCreated,
   onOptimisticItemCreated,
@@ -63,6 +66,8 @@ function FlowCard({
   onListJoined
 }: {
   currentList: ShoppingList | null;
+  spaces: ShoppingSpace[];
+  selectedSpaceId?: string | null;
   catalogProducts: ProductCatalogItem[];
   onItemCreated: (item: ShoppingItem) => void;
   onOptimisticItemCreated: (item: ShoppingItem) => void;
@@ -90,6 +95,8 @@ function FlowCard({
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Empieza por una lista nueva. En cuanto la crees, pasaras al Paso 2.</p>
         </div>
         <CreateListForm
+          spaces={spaces}
+          selectedSpaceId={selectedSpaceId}
           onOptimisticListCreated={onOptimisticListCreated}
           onListCreated={onListCreated}
           onListCreationFailed={onListCreationFailed}
@@ -152,10 +159,15 @@ function FlowCard({
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
             Fecha: {formatDate(currentList.shoppingDate)} - {currentList.itemCount ?? 0} productos guardados
           </p>
+          {currentList.spaceName ? (
+            <p className="mt-3 inline-flex rounded-full bg-[var(--accent-soft)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--accent-strong)]">
+              Espacio · {currentList.spaceName}
+            </p>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {currentList.accessRole === "owner" ? (
+          {currentList.accessRole === "owner" && !currentList.spaceId ? (
             <button
               type="button"
               disabled={sharePending}
@@ -182,6 +194,10 @@ function FlowCard({
             >
               {sharePending ? "Generando..." : "Compartir lista"}
             </button>
+          ) : currentList.spaceId ? (
+            <span className="rounded-full bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
+              Compartida en espacio
+            </span>
           ) : currentList.shared ? (
             <span className="rounded-full bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
               Lista compartida
@@ -229,6 +245,244 @@ function FlowCard({
           onOptimisticItemCreated={onOptimisticItemCreated}
           onItemDeleted={onItemDeleted}
         />
+      </div>
+    </section>
+  );
+}
+
+function SpacesCard({
+  spaces,
+  selectedSpaceId,
+  onSelectSpace,
+  onSpaceCreated,
+  onSpaceJoined,
+  onListsImported,
+  onSpaceDeleted
+}: {
+  spaces: ShoppingSpace[];
+  selectedSpaceId?: string | null;
+  onSelectSpace: (spaceId: string | null) => void;
+  onSpaceCreated: (space: ShoppingSpace) => void;
+  onSpaceJoined: (space: ShoppingSpace) => void;
+  onListsImported: (lists: ShoppingList[]) => void;
+  onSpaceDeleted: (spaceId: string) => void;
+}) {
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [spaceName, setSpaceName] = useState("");
+  const [joinCode, setJoinCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [createPending, startCreateTransition] = useTransition();
+  const [joinPending, startJoinTransition] = useTransition();
+  const [deletePendingId, setDeletePendingId] = useState<string | null>(null);
+
+  return (
+    <section className="rounded-[28px] border border-[rgba(115,121,114,0.16)] bg-[rgba(255,255,255,0.78)] p-5 shadow-[0_18px_36px_rgba(74,97,80,0.08)] backdrop-blur-[14px]">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Espacios</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--text)]">Comparte por grupos estables</h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+            Crea un espacio para una familia, piso o equipo. Las listas que nazcan ahi se compartiran con sus miembros.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            setShowCreateForm((previous) => !previous);
+            setError(null);
+            setSuccess(null);
+          }}
+          className="rounded-full border border-[var(--border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--accent-strong)] transition hover:bg-[var(--surface-soft)]"
+        >
+          Crear espacio
+        </button>
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+        <div className="grid gap-3">
+          {spaces.length > 0 ? (
+            spaces.map((space) => {
+              const active = selectedSpaceId === space.id;
+
+              return (
+                <div
+                  key={space.id}
+                  className={`rounded-[22px] border px-4 py-4 text-left transition ${
+                    active
+                      ? "border-[var(--accent)] bg-[var(--accent-soft)] shadow-[0_12px_24px_rgba(74,97,80,0.10)]"
+                      : "border-[var(--border)] bg-white hover:bg-[var(--surface-soft)]"
+                  }`}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <button type="button" onClick={() => onSelectSpace(active ? null : space.id)} className="min-w-0 flex-1 text-left">
+                      <p className="text-base font-semibold text-[var(--text)]">{space.name}</p>
+                      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                        Codigo · {space.shareCode}
+                      </p>
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[var(--accent-strong)]">
+                        {space.listCount ?? 0} listas
+                      </span>
+                      {space.accessRole === "owner" ? (
+                        <button
+                          type="button"
+                          disabled={deletePendingId === space.id}
+                          onClick={() => {
+                            setError(null);
+                            setSuccess(null);
+                            setDeletePendingId(space.id);
+                            void (async () => {
+                              try {
+                                const response = await fetch(`/api/spaces/${space.id}`, {
+                                  method: "DELETE"
+                                });
+                                const payload = (await response.json().catch(() => ({}))) as { error?: string };
+
+                                if (!response.ok) {
+                                  throw new Error(payload.error || "No se pudo eliminar el espacio.");
+                                }
+
+                                onSpaceDeleted(space.id);
+                                if (selectedSpaceId === space.id) {
+                                  onSelectSpace(null);
+                                }
+                                setSuccess(`Espacio eliminado: ${space.name}.`);
+                              } catch (submitError) {
+                                setError(submitError instanceof Error ? submitError.message : "No se pudo eliminar el espacio.");
+                              } finally {
+                                setDeletePendingId(null);
+                              }
+                            })();
+                          }}
+                          className="rounded-full border border-[#e7c8be] bg-[rgba(255,244,240,0.92)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-[#a45f4a] transition hover:bg-[rgba(255,244,240,1)] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {deletePendingId === space.id ? "Eliminando..." : "Eliminar"}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+                    <span>{space.memberCount ?? 0} miembros</span>
+                    <span>{space.accessRole === "owner" ? "Owner" : "Miembro"}</span>
+                    {active ? <span className="text-[var(--accent-strong)]">Seleccionado para nuevas listas</span> : null}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="rounded-[22px] border border-dashed border-[var(--border)] bg-[var(--surface-soft)] p-4 text-sm leading-6 text-[var(--muted)]">
+              Aun no tienes espacios. Crea uno para agrupar listas compartidas de forma permanente.
+            </div>
+          )}
+        </div>
+
+        <div className="grid gap-3">
+          {showCreateForm ? (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                setError(null);
+                setSuccess(null);
+                startCreateTransition(async () => {
+                  try {
+                    const response = await fetch("/api/spaces", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json"
+                      },
+                      body: JSON.stringify({ name: spaceName })
+                    });
+                    const payload = (await response.json()) as { space?: ShoppingSpace; error?: string };
+
+                    if (!response.ok || !payload.space) {
+                      throw new Error(payload.error || "No se pudo crear el espacio.");
+                    }
+
+                    onSpaceCreated(payload.space);
+                    onSelectSpace(payload.space.id);
+                    setSpaceName("");
+                    setSuccess(`Espacio creado. Codigo: ${payload.space.shareCode}`);
+                    setShowCreateForm(false);
+                  } catch (submitError) {
+                    setError(submitError instanceof Error ? submitError.message : "No se pudo crear el espacio.");
+                  }
+                });
+              }}
+              className="rounded-[22px] border border-[var(--border)] bg-white p-4"
+            >
+              <p className="text-sm font-semibold text-[var(--text)]">Nuevo espacio</p>
+              <input
+                type="text"
+                value={spaceName}
+                onChange={(event) => setSpaceName(event.currentTarget.value)}
+                placeholder="Casa, piso compartido, oficina..."
+                className="mt-3 w-full rounded-[18px] border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
+              />
+              <button
+                type="submit"
+                disabled={createPending}
+                className="mt-3 w-full rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {createPending ? "Creando..." : "Guardar espacio"}
+              </button>
+            </form>
+          ) : null}
+
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              setError(null);
+              setSuccess(null);
+              startJoinTransition(async () => {
+                try {
+                  const response = await fetch("/api/spaces/join", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ shareCode: joinCode })
+                  });
+                  const payload = (await response.json()) as { space?: ShoppingSpace; lists?: ShoppingList[]; error?: string };
+
+                  if (!response.ok || !payload.space) {
+                    throw new Error(payload.error || "No se pudo unir al espacio.");
+                  }
+
+                  onSpaceJoined(payload.space);
+                  onListsImported(payload.lists ?? []);
+                  onSelectSpace(payload.space.id);
+                  setJoinCode("");
+                  setSuccess(`Te has unido a ${payload.space.name}.`);
+                } catch (submitError) {
+                  setError(submitError instanceof Error ? submitError.message : "No se pudo unir al espacio.");
+                }
+              });
+            }}
+            className="rounded-[22px] border border-[var(--border)] bg-white p-4"
+          >
+            <p className="text-sm font-semibold text-[var(--text)]">Unirme con codigo</p>
+            <input
+              type="text"
+              value={joinCode}
+              onChange={(event) => setJoinCode(event.currentTarget.value.toUpperCase())}
+              placeholder="AB12CD34"
+              className="mt-3 w-full rounded-[18px] border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
+            />
+            <button
+              type="submit"
+              disabled={joinPending || !joinCode.trim()}
+              className="mt-3 w-full rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1d3028] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {joinPending ? "Uniendo..." : "Entrar en espacio"}
+            </button>
+          </form>
+
+          {error ? <p className="rounded-[18px] bg-[#fff1f1] px-4 py-3 text-sm text-[#b44d4d]">{error}</p> : null}
+          {success ? <p className="rounded-[18px] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--accent-strong)]">{success}</p> : null}
+        </div>
       </div>
     </section>
   );
@@ -454,6 +708,7 @@ export function DashboardShell({
   items,
   suggestionItems,
   lists,
+  spaces,
   reminders,
   frequentProducts,
   catalogProducts,
@@ -467,6 +722,7 @@ export function DashboardShell({
   items: ShoppingItem[];
   suggestionItems: ShoppingItem[];
   lists: ShoppingList[];
+  spaces: ShoppingSpace[];
   reminders: ReminderSuggestion[];
   frequentProducts: ProductInsight[];
   catalogProducts: ProductCatalogItem[];
@@ -481,8 +737,10 @@ export function DashboardShell({
   const [localCurrentList, setLocalCurrentList] = useState(currentList);
   const [localItems, setLocalItems] = useState(items);
   const [localLists, setLocalLists] = useState(lists);
+  const [localSpaces, setLocalSpaces] = useState(spaces);
   const [localScheduledListReminders, setLocalScheduledListReminders] = useState(scheduledListReminders);
   const [localSelectedListId, setLocalSelectedListId] = useState<string | null>(selectedListId ?? null);
+  const [localSelectedSpaceId, setLocalSelectedSpaceId] = useState<string | null>(null);
 
   useEffect(() => {
     setLocalActiveTab(activeTab);
@@ -499,6 +757,10 @@ export function DashboardShell({
   useEffect(() => {
     setLocalLists(lists);
   }, [lists]);
+
+  useEffect(() => {
+    setLocalSpaces(spaces);
+  }, [spaces]);
 
   useEffect(() => {
     setLocalScheduledListReminders(scheduledListReminders);
@@ -708,6 +970,18 @@ export function DashboardShell({
     setLocalSelectedListId(list.id);
     setLocalItems([]);
     setLocalLists((previous) => [list, ...previous]);
+    if (list.spaceId) {
+      setLocalSpaces((previous) =>
+        previous.map((space) =>
+          space.id === list.spaceId
+            ? {
+                ...space,
+                listCount: (space.listCount ?? 0) + 1
+              }
+            : space
+        )
+      );
+    }
 
     if (list.reminderDate) {
       const reminderDate = list.reminderDate;
@@ -736,7 +1010,20 @@ export function DashboardShell({
   }
 
   function handleListCreationFailed(listId: string) {
+    const failedList = localLists.find((list) => list.id === listId) ?? (localCurrentList?.id === listId ? localCurrentList : null);
     setLocalLists((previous) => previous.filter((list) => list.id !== listId));
+    if (failedList?.spaceId) {
+      setLocalSpaces((previous) =>
+        previous.map((space) =>
+          space.id === failedList.spaceId
+            ? {
+                ...space,
+                listCount: Math.max(0, (space.listCount ?? 0) - 1)
+              }
+            : space
+        )
+      );
+    }
     setLocalScheduledListReminders((previous) => previous.filter((reminder) => reminder.listId !== listId));
     setLocalCurrentList((previous) => (previous?.id === listId ? null : previous));
     setLocalSelectedListId((previous) => (previous === listId ? null : previous));
@@ -762,6 +1049,63 @@ export function DashboardShell({
       .catch(() => {
         setLocalItems([]);
       });
+  }
+
+  function handleSpaceCreated(space: ShoppingSpace) {
+    setLocalSpaces((previous) => (previous.some((entry) => entry.id === space.id) ? previous : [space, ...previous]));
+  }
+
+  function handleSpaceJoined(space: ShoppingSpace) {
+    setLocalSpaces((previous) => {
+      const existing = previous.find((entry) => entry.id === space.id);
+      if (!existing) {
+        return [space, ...previous];
+      }
+
+      return previous.map((entry) => (entry.id === space.id ? { ...entry, ...space } : entry));
+    });
+  }
+
+  function handleImportedSpaceLists(importedLists: ShoppingList[]) {
+    if (importedLists.length === 0) {
+      return;
+    }
+
+    setLocalLists((previous) => {
+      const byId = new Map(previous.map((list) => [list.id, list]));
+      for (const list of importedLists) {
+        byId.set(list.id, {
+          ...byId.get(list.id),
+          ...list
+        });
+      }
+      return [...byId.values()].sort((a, b) => new Date(b.shoppingDate).getTime() - new Date(a.shoppingDate).getTime());
+    });
+  }
+
+  function handleSpaceDeleted(spaceId: string) {
+    setLocalSpaces((previous) => previous.filter((space) => space.id !== spaceId));
+    setLocalLists((previous) =>
+      previous.map((list) =>
+        list.spaceId === spaceId
+          ? {
+              ...list,
+              spaceId: null,
+              spaceName: null
+            }
+          : list
+      )
+    );
+    setLocalCurrentList((previous) =>
+      previous?.spaceId === spaceId
+        ? {
+            ...previous,
+            spaceId: null,
+            spaceName: null
+          }
+        : previous
+    );
+    setLocalSelectedSpaceId((previous) => (previous === spaceId ? null : previous));
   }
 
   function handleItemToggled(itemId: string, nextStatus: ShoppingItem["status"], nextCheckedAt: string | null) {
@@ -798,9 +1142,22 @@ export function DashboardShell({
     const previousLists = localLists;
     const previousCurrentList = localCurrentList;
     const previousItems = localItems;
+    const previousSpaces = localSpaces;
     const previousScheduledListReminders = localScheduledListReminders;
+    const deletedLists = localLists.filter((list) => uniqueIds.includes(list.id));
 
     setLocalLists((current) => current.filter((list) => !uniqueIds.includes(list.id)));
+    setLocalSpaces((current) =>
+      current.map((space) => {
+        const removedCount = deletedLists.filter((list) => list.spaceId === space.id).length;
+        return removedCount > 0
+          ? {
+              ...space,
+              listCount: Math.max(0, (space.listCount ?? 0) - removedCount)
+            }
+          : space;
+      })
+    );
     setLocalScheduledListReminders((current) => current.filter((reminder) => !uniqueIds.includes(reminder.listId)));
 
     if (localCurrentList && uniqueIds.includes(localCurrentList.id)) {
@@ -815,6 +1172,7 @@ export function DashboardShell({
       setLocalLists(previousLists);
       setLocalCurrentList(previousCurrentList);
       setLocalItems(previousItems);
+      setLocalSpaces(previousSpaces);
       setLocalScheduledListReminders(previousScheduledListReminders);
     }
   }
@@ -910,8 +1268,19 @@ export function DashboardShell({
 
       {localActiveTab === "lista" ? (
         <>
+          <SpacesCard
+            spaces={localSpaces}
+            selectedSpaceId={localSelectedSpaceId}
+            onSelectSpace={setLocalSelectedSpaceId}
+            onSpaceCreated={handleSpaceCreated}
+            onSpaceJoined={handleSpaceJoined}
+            onListsImported={handleImportedSpaceLists}
+            onSpaceDeleted={handleSpaceDeleted}
+          />
           <FlowCard
             currentList={localCurrentList}
+            spaces={localSpaces}
+            selectedSpaceId={localSelectedSpaceId}
             catalogProducts={catalogProducts}
             onItemCreated={handleItemCreated}
             onOptimisticItemCreated={handleOptimisticItemCreated}

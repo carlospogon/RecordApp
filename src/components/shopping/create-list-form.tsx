@@ -1,28 +1,42 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { ShoppingList } from "@/types/shopping";
+import { ShoppingList, ShoppingSpace } from "@/types/shopping";
 
 type CreateListFormProps = {
+  spaces?: ShoppingSpace[];
+  selectedSpaceId?: string | null;
   onOptimisticListCreated?: (list: ShoppingList) => void;
   onListCreated?: (list: ShoppingList) => void;
   onListCreationFailed?: (listId: string) => void;
 };
 
-export function CreateListForm({ onOptimisticListCreated, onListCreated, onListCreationFailed }: CreateListFormProps) {
+export function CreateListForm({
+  spaces = [],
+  selectedSpaceId = null,
+  onOptimisticListCreated,
+  onListCreated,
+  onListCreationFailed
+}: CreateListFormProps) {
   const [pending, startTransition] = useTransition();
   const defaultDate = new Date().toISOString().slice(0, 10);
   const [shoppingDate, setShoppingDate] = useState(defaultDate);
   const [title, setTitle] = useState("");
+  const [spaceId, setSpaceId] = useState<string>(selectedSpaceId ?? "");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const showReminderDate = useMemo(() => shoppingDate > defaultDate, [shoppingDate, defaultDate]);
   const defaultReminderDate = useMemo(() => (showReminderDate ? shoppingDate : ""), [showReminderDate, shoppingDate]);
   const [reminderDate, setReminderDate] = useState(defaultReminderDate);
+  const selectedSpace = useMemo(() => spaces.find((entry) => entry.id === spaceId) ?? null, [spaceId, spaces]);
 
   useEffect(() => {
     setReminderDate(defaultReminderDate);
   }, [defaultReminderDate]);
+
+  useEffect(() => {
+    setSpaceId(selectedSpaceId ?? "");
+  }, [selectedSpaceId]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,7 +49,9 @@ export function CreateListForm({ onOptimisticListCreated, onListCreated, onListC
     const optimisticList: ShoppingList = {
       id: listId,
       ownerId: "local-owner",
-      shared: false,
+      spaceId: selectedSpace?.id ?? null,
+      spaceName: selectedSpace?.name ?? null,
+      shared: Boolean(selectedSpace),
       accessRole: "owner",
       title: title.trim() || "Lista de compra",
       shoppingDate,
@@ -61,6 +77,7 @@ export function CreateListForm({ onOptimisticListCreated, onListCreated, onListC
           body: JSON.stringify({
             id: listId,
             title,
+            spaceId: selectedSpace?.id ?? "",
             shoppingDate,
             reminderDate: showReminderDate ? reminderDate || shoppingDate : ""
           })
@@ -101,6 +118,32 @@ export function CreateListForm({ onOptimisticListCreated, onListCreated, onListC
           placeholder="Compra semanal, fruteria, hogar..."
           className="rounded-[18px] border border-[var(--border)] bg-white px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
         />
+        {spaces.length > 0 ? (
+          <div className="grid gap-2 rounded-[18px] border border-[var(--border)] bg-white px-4 py-4">
+            <label htmlFor="spaceId" className="text-sm font-semibold text-[var(--text)]">
+              Espacio
+            </label>
+            <select
+              id="spaceId"
+              name="spaceId"
+              value={spaceId}
+              onChange={(event) => setSpaceId(event.currentTarget.value)}
+              className="rounded-[14px] border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
+            >
+              <option value="">Sin espacio</option>
+              {spaces.map((space) => (
+                <option key={space.id} value={space.id}>
+                  {space.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-sm leading-6 text-[var(--muted)]">
+              {selectedSpace
+                ? "Las listas creadas en este espacio se compartiran automaticamente con sus miembros."
+                : "Si eliges un espacio, la lista nacera ya compartida con ese grupo."}
+            </p>
+          </div>
+        ) : null}
         <input
           type="date"
           name="shoppingDate"

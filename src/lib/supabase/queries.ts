@@ -11,12 +11,14 @@ import {
   ShoppingDuplicateNotice,
   ShoppingItem,
   ShoppingList,
-  ShoppingListInvite
+  ShoppingListInvite,
+  ShoppingSpace
 } from "@/types/shopping";
 
 type ShoppingListRow = {
   id: string;
   user_id?: string;
+  space_id?: string | null;
   shared?: boolean | null;
   title: string;
   shopping_date: string;
@@ -54,10 +56,25 @@ type ShoppingListMemberRow = {
   role: "owner" | "editor";
 };
 
+type ShoppingSpaceRow = {
+  id: string;
+  user_id?: string;
+  name: string;
+  share_code: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type ShoppingSpaceMemberRow = {
+  space_id: string;
+  role: "owner" | "editor";
+};
+
 function mapListRow(row: ShoppingListRow): ShoppingList {
   return {
     id: row.id,
     ownerId: row.user_id,
+    spaceId: row.space_id ?? null,
     shared: row.shared ?? false,
     accessRole: row.user_id ? "owner" : null,
     title: row.title,
@@ -67,6 +84,18 @@ function mapListRow(row: ShoppingListRow): ShoppingList {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     completedAt: row.completed_at ?? null
+  };
+}
+
+function mapSpaceRow(row: ShoppingSpaceRow): ShoppingSpace {
+  return {
+    id: row.id,
+    ownerId: row.user_id,
+    name: row.name,
+    shareCode: row.share_code,
+    accessRole: row.user_id ? "owner" : null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
   };
 }
 
@@ -162,6 +191,24 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
   }
 
   const supabase = await createSupabaseServerClient();
+  const { data: spaceMemberRows } = await supabase
+    .from("shopping_space_members")
+    .select("space_id, role");
+  const accessibleSpaceMemberships = (spaceMemberRows ?? []) as ShoppingSpaceMemberRow[];
+  const spaceRoleBySpaceId = new Map(accessibleSpaceMemberships.map((row) => [row.space_id, row.role]));
+  const spaceMemberCountBySpaceId = accessibleSpaceMemberships.reduce<Record<string, number>>((acc, row) => {
+    acc[row.space_id] = (acc[row.space_id] ?? 0) + 1;
+    return acc;
+  }, {});
+  const { data: spacesData, error: spacesError } = await supabase
+    .from("shopping_spaces")
+    .select("id, user_id, name, share_code, created_at, updated_at")
+    .order("created_at", { ascending: false });
+
+  if (spacesError) {
+    throw new Error(spacesError.message);
+  }
+
   const { data: memberRows } = await supabase
     .from("shopping_list_members")
     .select("list_id, role");
@@ -172,7 +219,7 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
   try {
     const response = await supabase
       .from("shopping_lists")
-      .select("id, user_id, shared, title, shopping_date, reminder_date, reminder_sent_at, created_at, updated_at, completed_at")
+      .select("id, user_id, space_id, shared, title, shopping_date, reminder_date, reminder_sent_at, created_at, updated_at, completed_at")
       .order("shopping_date", { ascending: false })
       .order("created_at", { ascending: false });
 
@@ -181,7 +228,7 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
   } catch {
     const fallbackResponse = await supabase
       .from("shopping_lists")
-      .select("id, user_id, shared, title, shopping_date, created_at, updated_at")
+      .select("id, user_id, space_id, shared, title, shopping_date, created_at, updated_at")
       .order("shopping_date", { ascending: false })
       .order("created_at", { ascending: false });
 
@@ -204,18 +251,38 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
   }
 
   const allItems = (allItemsData ?? []).map((row) => mapItemRow(row as ShoppingItemRow));
+  const spaces = (spacesData ?? []).map((row) => {
+    const space = mapSpaceRow(row as ShoppingSpaceRow);
+    return {
+      ...space,
+      accessRole: row.user_id === user.id ? "owner" : spaceRoleBySpaceId.get(space.id) ?? null,
+      memberCount: spaceMemberCountBySpaceId[space.id] ?? 0
+    };
+  });
+  const spaceById = new Map(spaces.map((space) => [space.id, space]));
   const itemCountByListId = allItems.reduce<Record<string, number>>((acc, item) => {
     acc[item.listId] = (acc[item.listId] ?? 0) + 1;
+    return acc;
+  }, {});
+  const listCountBySpaceId = (listsData ?? []).reduce<Record<string, number>>((acc, row) => {
+    if (row.space_id) {
+      acc[row.space_id] = (acc[row.space_id] ?? 0) + 1;
+    }
     return acc;
   }, {});
   const lists = (listsData ?? []).map((row) => {
     const list = mapListRow(row as ShoppingListRow);
     return {
       ...list,
+      spaceName: list.spaceId ? spaceById.get(list.spaceId)?.name ?? null : null,
       accessRole: row.user_id === user.id ? "owner" : memberRoleByListId.get(list.id) ?? null,
       itemCount: itemCountByListId[list.id] ?? 0
     };
   });
+  const spacesWithStats = spaces.map((space) => ({
+    ...space,
+    listCount: listCountBySpaceId[space.id] ?? 0
+  }));
   const currentList = selectedListId ? lists.find((list) => list.id === selectedListId) ?? null : null;
 
   const items = allItems
@@ -268,6 +335,7 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
     userEmail: user.email ?? "Usuario",
     currentList,
     lists,
+    spaces: spacesWithStats,
     items,
     suggestionItems,
     scheduledListReminders,

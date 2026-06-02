@@ -16,6 +16,8 @@ export type ProductCategory =
 export type ShoppingList = {
   id: string;
   ownerId?: string;
+  spaceId?: string | null;
+  spaceName?: string | null;
   title: string;
   shared?: boolean;
   accessRole?: "owner" | "editor" | null;
@@ -31,6 +33,18 @@ export type ShoppingList = {
 export type ShoppingListInvite = {
   listId: string;
   shareCode: string;
+};
+
+export type ShoppingSpace = {
+  id: string;
+  ownerId?: string;
+  name: string;
+  shareCode: string;
+  accessRole?: "owner" | "editor" | null;
+  memberCount?: number;
+  listCount?: number;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type ShoppingItem = {
@@ -130,6 +144,7 @@ export type ShoppingDashboardData = {
   userEmail: string;
   currentList: ShoppingList | null;
   lists: ShoppingList[];
+  spaces: ShoppingSpace[];
   items: ShoppingItem[];
   suggestionItems: ShoppingItem[];
   scheduledListReminders: ScheduledListReminder[];
