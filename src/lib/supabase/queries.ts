@@ -143,6 +143,38 @@ function buildHistoryCatalog(items: ShoppingItem[]): ProductCatalogItem[] {
   return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name, "es"));
 }
 
+function getUserDisplayNameFromIdentity(user: NonNullable<Awaited<ReturnType<typeof requireAuthenticatedUser>>>) {
+  const metadata = user.user_metadata ?? {};
+  const candidate =
+    (typeof metadata.full_name === "string" && metadata.full_name.trim()) ||
+    (typeof metadata.name === "string" && metadata.name.trim()) ||
+    (typeof metadata.user_name === "string" && metadata.user_name.trim()) ||
+    "";
+
+  if (candidate) {
+    return candidate;
+  }
+
+  const localPart = (user.email ?? "usuario").split("@")[0] ?? "usuario";
+  const cleaned = localPart.replace(/[._-]+/g, " ").trim();
+
+  if (!cleaned) {
+    return "Usuario";
+  }
+
+  return cleaned.replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function getUserAvatarUrl(user: NonNullable<Awaited<ReturnType<typeof requireAuthenticatedUser>>>) {
+  const metadata = user.user_metadata ?? {};
+
+  return (
+    (typeof metadata.avatar_url === "string" && metadata.avatar_url.trim()) ||
+    (typeof metadata.picture === "string" && metadata.picture.trim()) ||
+    null
+  );
+}
+
 async function getCatalogProducts(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, items: ShoppingItem[]) {
   try {
     const { data, error } = await supabase
@@ -333,6 +365,8 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
 
   return {
     userEmail: user.email ?? "Usuario",
+    userName: getUserDisplayNameFromIdentity(user),
+    userAvatarUrl: getUserAvatarUrl(user),
     currentList,
     lists,
     spaces: spacesWithStats,
