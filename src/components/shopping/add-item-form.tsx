@@ -15,6 +15,20 @@ type CreateItemResponse = {
   item: ShoppingItem;
 };
 
+const itemSections = [
+  { value: "fruta", label: "Fruta" },
+  { value: "verdura", label: "Verdura" },
+  { value: "lacteos", label: "Lacteos" },
+  { value: "huevos", label: "Huevos" },
+  { value: "panaderia", label: "Panaderia" },
+  { value: "carne", label: "Carne" },
+  { value: "pescado", label: "Pescado" },
+  { value: "despensa", label: "Despensa" },
+  { value: "bebidas", label: "Bebidas" },
+  { value: "hogar", label: "Hogar" },
+  { value: "otros", label: "Otros" }
+] as const;
+
 function formatDate(value?: string) {
   if (!value) {
     return "Sin fecha";
@@ -33,6 +47,8 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("");
+  const [section, setSection] = useState<(typeof itemSections)[number]["value"]>("otros");
+  const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [duplicateNotice, setDuplicateNotice] = useState<ShoppingDuplicateNotice | null>(null);
@@ -61,6 +77,8 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
       normalizedName: (selectedProduct?.normalizedName ?? name.trim().toLowerCase()).trim(),
       quantity: quantity || null,
       unit: unit || selectedProduct?.defaultUnit || null,
+      section: section || selectedProduct?.category || "otros",
+      notes: notes || null,
       status: "pending",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -71,6 +89,8 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
     setName("");
     setQuantity("");
     setUnit("");
+    setSection("otros");
+    setNotes("");
 
     startTransition(async () => {
       try {
@@ -85,7 +105,9 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
             productId: selectedProduct?.id ?? "",
             name,
             quantity,
-            unit: unit || selectedProduct?.defaultUnit || ""
+            unit: unit || selectedProduct?.defaultUnit || "",
+            section: section || selectedProduct?.category || "otros",
+            notes
           })
         });
 
@@ -212,6 +234,28 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
               value={unit}
               onChange={(event) => setUnit(event.currentTarget.value)}
               placeholder="Unidad"
+              className="rounded-[18px] border border-[var(--border)] bg-white px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
+            />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-[0.8fr_1.2fr]">
+            <select
+              value={section}
+              onChange={(event) => setSection(event.currentTarget.value as (typeof itemSections)[number]["value"])}
+              className="rounded-[18px] border border-[var(--border)] bg-white px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
+            >
+              {itemSections.map((itemSection) => (
+                <option key={itemSection.value} value={itemSection.value}>
+                  {itemSection.label}
+                </option>
+              ))}
+            </select>
+            <input
+              type="text"
+              value={notes}
+              onChange={(event) => setNotes(event.currentTarget.value)}
+              placeholder="Nota rapida: marca, sin gluten, pasillo..."
+              maxLength={240}
               className="rounded-[18px] border border-[var(--border)] bg-white px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
             />
           </div>

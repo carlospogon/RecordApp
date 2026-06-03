@@ -5,6 +5,19 @@ import { updateItemAction, type ActionState } from "@/app/app/actions";
 import { ShoppingItem } from "@/types/shopping";
 
 const initialActionState: ActionState = {};
+const sectionLabels: Record<string, string> = {
+  fruta: "Fruta",
+  verdura: "Verdura",
+  lacteos: "Lacteos",
+  huevos: "Huevos",
+  panaderia: "Panaderia",
+  carne: "Carne",
+  pescado: "Pescado",
+  despensa: "Despensa",
+  bebidas: "Bebidas",
+  hogar: "Hogar",
+  otros: "Otros"
+};
 
 function formatDateTime(value?: string | null) {
   if (!value) {
@@ -67,6 +80,27 @@ function EditItemForm({ item }: { item: ShoppingItem }) {
           name="unit"
           defaultValue={item.unit ?? ""}
           placeholder="Unidad"
+          className="rounded-[16px] border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
+        />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-[0.8fr_1.2fr]">
+        <select
+          name="section"
+          defaultValue={item.section ?? "otros"}
+          className="rounded-[16px] border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
+        >
+          {Object.entries(sectionLabels).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <input
+          type="text"
+          name="notes"
+          defaultValue={item.notes ?? ""}
+          placeholder="Nota del producto"
+          maxLength={240}
           className="rounded-[16px] border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
         />
       </div>
@@ -203,6 +237,14 @@ function ItemCard({
               {item.quantity ? `${item.quantity} ` : ""}
               {item.unit ?? "Sin unidad"}
             </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-[var(--surface-soft)] px-3 py-1 text-xs font-semibold text-[var(--accent-strong)]">
+                {sectionLabels[item.section ?? "otros"] ?? "Otros"}
+              </span>
+              {item.notes ? (
+                <span className="rounded-full bg-[#fbf4ec] px-3 py-1 text-xs font-medium text-[#94644f]">{item.notes}</span>
+              ) : null}
+            </div>
             {checkedLabel ? (
               <p className="mt-2 text-xs font-medium uppercase tracking-[0.14em] text-[var(--accent-strong)]">
                 Marcado el {checkedLabel}
@@ -263,10 +305,56 @@ export function ItemsList({
         <span className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[var(--text)]">{items.length} productos</span>
       </div>
 
-        <div className="mt-5 grid gap-4">
-        {items.map((item) => (
-          <ItemCard key={item.id} item={item} onDelete={onDelete} onToggle={onToggle} />
-        ))}
+      <div className="mt-5 grid gap-5">
+        {Object.entries(
+          items.reduce<Record<string, ShoppingItem[]>>((groups, item) => {
+            const key = item.section ?? "otros";
+            if (!groups[key]) {
+              groups[key] = [];
+            }
+
+            groups[key].push(item);
+            return groups;
+          }, {})
+        )
+          .sort(([sectionA], [sectionB]) => {
+            if (sectionA === "otros") {
+              return 1;
+            }
+
+            if (sectionB === "otros") {
+              return -1;
+            }
+
+            return (sectionLabels[sectionA] ?? sectionA).localeCompare(sectionLabels[sectionB] ?? sectionB, "es");
+          })
+          .map(([section, sectionItems]) => (
+            <section key={section} className="grid gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">Seccion</p>
+                  <h3 className="mt-1 text-lg font-semibold text-[var(--text)]">{sectionLabels[section] ?? "Otros"}</h3>
+                </div>
+                <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[var(--muted)]">
+                  {sectionItems.length} productos
+                </span>
+              </div>
+              <div className="grid gap-4">
+                {sectionItems
+                  .slice()
+                  .sort((itemA, itemB) => {
+                    if (itemA.status === itemB.status) {
+                      return itemA.name.localeCompare(itemB.name, "es");
+                    }
+
+                    return itemA.status === "pending" ? -1 : 1;
+                  })
+                  .map((item) => (
+                    <ItemCard key={item.id} item={item} onDelete={onDelete} onToggle={onToggle} />
+                  ))}
+              </div>
+            </section>
+          ))}
       </div>
     </section>
   );

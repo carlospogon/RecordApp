@@ -11,6 +11,8 @@ type CreateItemPayload = {
   name?: string;
   quantity?: string;
   unit?: string;
+  section?: string;
+  notes?: string;
 };
 
 export async function POST(request: Request) {
@@ -21,6 +23,8 @@ export async function POST(request: Request) {
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const quantity = typeof body.quantity === "string" ? body.quantity.trim() : "";
   const unit = typeof body.unit === "string" ? body.unit.trim() : "";
+  const section = typeof body.section === "string" ? body.section.trim() : "";
+  const notes = typeof body.notes === "string" ? body.notes.trim() : "";
 
   if (!listId || !name) {
     return NextResponse.json({ error: "Completa al menos el nombre del producto." }, { status: 400 });
@@ -54,22 +58,96 @@ export async function POST(request: Request) {
     if (productId) {
       const { data: catalogProduct } = await supabase
         .from("shopping_products")
-        .select("default_unit")
+        .select("default_unit, category")
         .eq("id", productId)
         .eq("user_id", user.id)
         .maybeSingle();
 
       finalUnit = unit || catalogProduct?.default_unit || null;
+      const finalSection = section || catalogProduct?.category || null;
+      const now = new Date().toISOString();
+      const { error } = await admin
+        .from("shopping_items")
+        .insert({
+          id,
+          list_id: listId,
+          user_id: user.id,
+          name,
+          normalized_name: normalizedName,
+          quantity: quantity || null,
+          unit: finalUnit,
+          section: finalSection,
+          notes: notes || null,
+          status: "pending"
+        });
+
+      if (error) {
+        return NextResponse.json({ error: error?.message ?? "No se pudo crear el producto." }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        item: {
+          id,
+          listId,
+          name,
+          normalizedName,
+          quantity: quantity || null,
+          unit: finalUnit,
+          section: finalSection,
+          notes: notes || null,
+          status: "pending",
+          createdAt: now,
+          updatedAt: now,
+          checkedAt: null
+        }
+      });
     } else {
       const { data: existingProduct } = await supabase
         .from("shopping_products")
-        .select("id, default_unit")
+        .select("id, default_unit, category")
         .eq("normalized_name", normalizedName)
         .eq("user_id", user.id)
         .maybeSingle();
 
       if (existingProduct) {
         finalUnit = unit || existingProduct.default_unit || null;
+        const finalSection = section || existingProduct.category || null;
+        const now = new Date().toISOString();
+        const { error } = await admin
+          .from("shopping_items")
+          .insert({
+            id,
+            list_id: listId,
+            user_id: user.id,
+            name,
+            normalized_name: normalizedName,
+            quantity: quantity || null,
+            unit: finalUnit,
+            section: finalSection,
+            notes: notes || null,
+            status: "pending"
+          });
+
+        if (error) {
+          return NextResponse.json({ error: error?.message ?? "No se pudo crear el producto." }, { status: 500 });
+        }
+
+        return NextResponse.json({
+          item: {
+            id,
+            listId,
+            name,
+            normalizedName,
+            quantity: quantity || null,
+            unit: finalUnit,
+            section: finalSection,
+            notes: notes || null,
+            status: "pending",
+            createdAt: now,
+            updatedAt: now,
+            checkedAt: null
+          }
+        });
       } else {
         await supabase.from("shopping_products").insert({
           user_id: user.id,
@@ -85,6 +163,7 @@ export async function POST(request: Request) {
     finalUnit = unit || null;
   }
 
+  const finalSection = section || "otros";
   const now = new Date().toISOString();
   const { error } = await admin
     .from("shopping_items")
@@ -96,6 +175,8 @@ export async function POST(request: Request) {
       normalized_name: normalizedName,
       quantity: quantity || null,
       unit: finalUnit,
+      section: finalSection,
+      notes: notes || null,
       status: "pending"
     });
 
@@ -111,6 +192,8 @@ export async function POST(request: Request) {
       normalizedName,
       quantity: quantity || null,
       unit: finalUnit,
+      section: finalSection,
+      notes: notes || null,
       status: "pending",
       createdAt: now,
       updatedAt: now,

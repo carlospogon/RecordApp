@@ -57,6 +57,8 @@ function mapRealtimeItem(row: Record<string, unknown>): ShoppingItem {
     normalizedName: String(row.normalized_name),
     quantity: typeof row.quantity === "string" ? row.quantity : null,
     unit: typeof row.unit === "string" ? row.unit : null,
+    section: typeof row.section === "string" ? (row.section as ShoppingItem["section"]) : null,
+    notes: typeof row.notes === "string" ? row.notes : null,
     status: row.status === "bought" ? "bought" : "pending",
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),

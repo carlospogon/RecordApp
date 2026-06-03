@@ -27,7 +27,7 @@ export async function GET(_: Request, context: RouteContext) {
 
   const { data, error } = await admin
     .from("shopping_items")
-    .select("id, list_id, name, normalized_name, quantity, unit, status, created_at, updated_at, checked_at")
+    .select("id, list_id, name, normalized_name, quantity, unit, section, notes, status, created_at, updated_at, checked_at")
     .eq("list_id", id)
     .order("created_at", { ascending: true });
 
@@ -43,6 +43,8 @@ export async function GET(_: Request, context: RouteContext) {
       normalizedName: item.normalized_name,
       quantity: item.quantity,
       unit: item.unit,
+      section: item.section,
+      notes: item.notes,
       status: item.status,
       createdAt: item.created_at,
       updatedAt: item.updated_at,

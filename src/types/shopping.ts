@@ -54,6 +54,8 @@ export type ShoppingItem = {
   normalizedName: string;
   quantity?: string | null;
   unit?: string | null;
+  section?: ProductCategory | null;
+  notes?: string | null;
   status: ShoppingItemStatus;
   createdAt: string;
   updatedAt: string;

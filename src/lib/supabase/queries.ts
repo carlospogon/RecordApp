@@ -36,6 +36,8 @@ type ShoppingItemRow = {
   normalized_name: string;
   quantity: string | null;
   unit: string | null;
+  section: ProductCatalogItem["category"] | null;
+  notes: string | null;
   status: "pending" | "bought";
   created_at: string;
   updated_at: string;
@@ -107,6 +109,8 @@ function mapItemRow(row: ShoppingItemRow): ShoppingItem {
     normalizedName: row.normalized_name,
     quantity: row.quantity,
     unit: row.unit,
+    section: row.section,
+    notes: row.notes,
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -274,7 +278,7 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
 
   const { data: allItemsData, error: allItemsError } = await supabase
     .from("shopping_items")
-    .select("id, list_id, name, normalized_name, quantity, unit, status, created_at, updated_at, checked_at")
+    .select("id, list_id, name, normalized_name, quantity, unit, section, notes, status, created_at, updated_at, checked_at")
     .order("created_at", { ascending: false })
     .limit(500);
 
@@ -431,7 +435,7 @@ export async function findDuplicateNotice(productName: string): Promise<Shopping
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("shopping_items")
-    .select("id, list_id, name, normalized_name, quantity, unit, status, created_at, updated_at, checked_at")
+    .select("id, list_id, name, normalized_name, quantity, unit, section, notes, status, created_at, updated_at, checked_at")
     .eq("normalized_name", normalized)
     .order("created_at", { ascending: false })
     .limit(20);

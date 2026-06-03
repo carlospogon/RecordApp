@@ -19,7 +19,9 @@ const createItemSchema = z.object({
   productId: z.string().uuid().optional().or(z.literal("")),
   name: z.string().trim().min(1).max(120),
   quantity: z.string().trim().max(40).optional(),
-  unit: z.string().trim().max(40).optional()
+  unit: z.string().trim().max(40).optional(),
+  section: z.enum(["fruta", "verdura", "lacteos", "huevos", "panaderia", "carne", "pescado", "despensa", "bebidas", "hogar", "otros"]).optional(),
+  notes: z.string().trim().max(240).optional()
 });
 
 const itemIdSchema = z.object({
@@ -34,14 +36,18 @@ const quickAddItemSchema = z.object({
   listId: z.string().uuid(),
   name: z.string().trim().min(1).max(120),
   quantity: z.string().trim().max(40).optional(),
-  unit: z.string().trim().max(40).optional()
+  unit: z.string().trim().max(40).optional(),
+  section: z.enum(["fruta", "verdura", "lacteos", "huevos", "panaderia", "carne", "pescado", "despensa", "bebidas", "hogar", "otros"]).optional(),
+  notes: z.string().trim().max(240).optional()
 });
 
 const updateItemSchema = z.object({
   itemId: z.string().uuid(),
   name: z.string().trim().min(1).max(120),
   quantity: z.string().trim().max(40).optional(),
-  unit: z.string().trim().max(40).optional()
+  unit: z.string().trim().max(40).optional(),
+  section: z.enum(["fruta", "verdura", "lacteos", "huevos", "panaderia", "carne", "pescado", "despensa", "bebidas", "hogar", "otros"]).optional(),
+  notes: z.string().trim().max(240).optional()
 });
 
 const updateCatalogProductSchema = z.object({
@@ -177,7 +183,9 @@ export async function createItemAction(_: ActionState, formData: FormData): Prom
     productId: formData.get("productId") ?? "",
     name: formData.get("name") ?? "",
     quantity: formData.get("quantity") ?? "",
-    unit: formData.get("unit") ?? ""
+    unit: formData.get("unit") ?? "",
+    section: formData.get("section") ?? "otros",
+    notes: formData.get("notes") ?? ""
   });
 
   if (!parsed.success) {
@@ -199,20 +207,76 @@ export async function createItemAction(_: ActionState, formData: FormData): Prom
     if (parsed.data.productId) {
       const { data: catalogProduct } = await supabase
         .from("shopping_products")
-        .select("default_unit")
+        .select("default_unit, category")
         .eq("id", parsed.data.productId)
         .maybeSingle();
 
       finalUnit = parsed.data.unit || catalogProduct?.default_unit || null;
+      const finalSection = parsed.data.section || catalogProduct?.category || "otros";
+      const { data, error } = await supabase
+        .from("shopping_items")
+        .insert({
+          list_id: parsed.data.listId,
+          user_id: user.id,
+          name: parsed.data.name,
+          normalized_name: normalizedName,
+          quantity: parsed.data.quantity || null,
+          unit: finalUnit,
+          section: finalSection,
+          notes: parsed.data.notes || null,
+          status: "pending"
+        })
+        .select("id")
+        .single();
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      revalidatePath("/app");
+      return {
+        success: "Producto anadido.",
+        duplicateMessage: duplicateNotice?.message,
+        duplicateNotice,
+        createdItemId: data?.id
+      };
     } else {
       const { data: existingProduct } = await supabase
         .from("shopping_products")
-        .select("id, default_unit")
+        .select("id, default_unit, category")
         .eq("normalized_name", normalizedName)
         .maybeSingle();
 
       if (existingProduct) {
         finalUnit = parsed.data.unit || existingProduct.default_unit || null;
+        const finalSection = parsed.data.section || existingProduct.category || "otros";
+        const { data, error } = await supabase
+          .from("shopping_items")
+          .insert({
+            list_id: parsed.data.listId,
+            user_id: user.id,
+            name: parsed.data.name,
+            normalized_name: normalizedName,
+            quantity: parsed.data.quantity || null,
+            unit: finalUnit,
+            section: finalSection,
+            notes: parsed.data.notes || null,
+            status: "pending"
+          })
+          .select("id")
+          .single();
+
+        if (error) {
+          return { error: error.message };
+        }
+
+        revalidatePath("/app");
+        return {
+          success: "Producto anadido.",
+          duplicateMessage: duplicateNotice?.message,
+          duplicateNotice,
+          createdItemId: data?.id
+        };
       } else {
         await supabase.from("shopping_products").insert({
           user_id: user.id,
@@ -237,6 +301,8 @@ export async function createItemAction(_: ActionState, formData: FormData): Prom
       normalized_name: normalizedName,
       quantity: parsed.data.quantity || null,
       unit: finalUnit,
+      section: parsed.data.section || "otros",
+      notes: parsed.data.notes || null,
       status: "pending"
     })
     .select("id")
@@ -260,7 +326,9 @@ export async function quickAddReminderItemAction(formData: FormData) {
     listId: formData.get("listId") ?? "",
     name: formData.get("name") ?? "",
     quantity: formData.get("quantity") ?? "",
-    unit: formData.get("unit") ?? ""
+    unit: formData.get("unit") ?? "",
+    section: formData.get("section") ?? "otros",
+    notes: formData.get("notes") ?? ""
   });
 
   if (!parsed.success) {
@@ -282,6 +350,8 @@ export async function quickAddReminderItemAction(formData: FormData) {
     normalized_name: normalizedName,
     quantity: parsed.data.quantity || null,
     unit: parsed.data.unit || null,
+    section: parsed.data.section || "otros",
+    notes: parsed.data.notes || null,
     status: "pending"
   });
 
@@ -341,7 +411,9 @@ export async function updateItemAction(_: ActionState, formData: FormData): Prom
     itemId: formData.get("itemId") ?? "",
     name: formData.get("name") ?? "",
     quantity: formData.get("quantity") ?? "",
-    unit: formData.get("unit") ?? ""
+    unit: formData.get("unit") ?? "",
+    section: formData.get("section") ?? "otros",
+    notes: formData.get("notes") ?? ""
   });
 
   if (!parsed.success) {
@@ -357,7 +429,9 @@ export async function updateItemAction(_: ActionState, formData: FormData): Prom
       name: parsed.data.name,
       normalized_name: normalizedName,
       quantity: parsed.data.quantity || null,
-      unit: parsed.data.unit || null
+      unit: parsed.data.unit || null,
+      section: parsed.data.section || "otros",
+      notes: parsed.data.notes || null
     })
     .eq("id", parsed.data.itemId);
 
