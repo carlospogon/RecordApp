@@ -1,10 +1,38 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" rx="116" fill="#0D1514"/>
-  <rect x="68" y="68" width="376" height="376" rx="92" fill="#15211D"/>
-  <path d="M154 184H358V220H154V184Z" fill="#D8FF62"/>
-  <path d="M154 254H324V290H154V254Z" fill="#C8F3DF"/>
-  <path d="M154 324H278V360H154V324Z" fill="#97A8A1"/>
-  <circle cx="352" cy="343" r="56" fill="#D8FF62"/>
-  <path d="M351 314V372" stroke="#0D1514" stroke-width="18" stroke-linecap="round"/>
-  <path d="M322 343H380" stroke="#0D1514" stroke-width="18" stroke-linecap="round"/>
+  <defs>
+    <linearGradient id="bg512" x1="58" y1="48" x2="454" y2="464" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#557861"/>
+      <stop offset="0.28" stop-color="#284736"/>
+      <stop offset="1" stop-color="#091510"/>
+    </linearGradient>
+    <linearGradient id="card512" x1="167" y1="112" x2="353" y2="390" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4E7B61"/>
+      <stop offset="1" stop-color="#274534"/>
+    </linearGradient>
+    <linearGradient id="badge512" x1="317" y1="285" x2="430" y2="398" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D9FF63"/>
+      <stop offset="1" stop-color="#A9DF44"/>
+    </linearGradient>
+    <filter id="shadow512" x="40" y="33" width="432" height="447" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="22" stdDeviation="22" flood-color="#000000" flood-opacity="0.34"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="116" fill="#1A1313"/>
+  <g filter="url(#shadow512)">
+    <rect x="58" y="48" width="396" height="396" rx="101" fill="url(#bg512)"/>
+    <path d="M180 170C180 147.909 197.909 130 220 130H306C328.091 130 346 147.909 346 170V340C346 362.091 328.091 380 306 380H220C197.909 380 180 362.091 180 340V170Z" fill="url(#card512)"/>
+    <path d="M220 130H306C328.091 130 346 147.909 346 170V182H180V170C180 147.909 197.909 130 220 130Z" fill="#3F6551"/>
+    <path d="M238 112C238 91.013 255.013 74 276 74C296.987 74 314 91.013 314 112V150H292V116C292 107.716 285.284 101 277 101C268.716 101 262 107.716 262 116V150H238V112Z" fill="#CCFFD8"/>
+    <path d="M207 157L236 128" stroke="#CCFFD8" stroke-width="14" stroke-linecap="round"/>
+    <path d="M345 157L316 128" stroke="#CCFFD8" stroke-width="14" stroke-linecap="round"/>
+    <circle cx="221" cy="236" r="14" fill="#B5D7C7"/>
+    <circle cx="221" cy="283" r="14" fill="#D8FF63"/>
+    <circle cx="221" cy="330" r="14" fill="#F2E6C8"/>
+    <rect x="254" y="221" width="68" height="16" rx="8" fill="#C1F2C0"/>
+    <rect x="254" y="268" width="85" height="16" rx="8" fill="#D8FF63"/>
+    <rect x="254" y="315" width="92" height="16" rx="8" fill="#F5E4BF"/>
+    <circle cx="358" cy="322" r="58" fill="url(#badge512)"/>
+    <path d="M333 322L350 339L385 304" stroke="#173023" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
 </svg>
