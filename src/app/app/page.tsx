@@ -2,7 +2,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/shopping/dashboard-shell";
-import { signOutAction } from "@/app/app/actions";
 import { env } from "@/lib/env";
 import { getFrequentProductsForView, getShoppingDashboardData } from "@/lib/supabase/queries";
 
@@ -66,7 +65,7 @@ export default async function AppPage({
   const userInitials = getInitials(userDisplayName);
 
   return (
-    <main className="relative min-h-screen overflow-hidden px-3 py-4 sm:px-6 sm:py-8">
+    <main className="relative min-h-screen overflow-x-hidden px-3 py-4 sm:px-6 sm:py-8">
       <div className="absolute inset-0">
         <Image
           src="/app-mindful-background.jpg"
@@ -80,7 +79,7 @@ export default async function AppPage({
 
       <div className="relative z-10 mx-auto max-w-5xl rounded-[34px] border border-white/55 bg-[rgba(250,249,246,0.78)] p-4 shadow-[0_28px_70px_rgba(74,97,80,0.10)] backdrop-blur-[20px] sm:p-6">
           <header className="rounded-[26px] border border-white/55 bg-[rgba(255,255,255,0.74)] px-5 py-5 text-[var(--text)] backdrop-blur-[18px] sm:px-6">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
               <div className="flex min-w-0 items-center gap-4">
                 <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border border-white/70 bg-[linear-gradient(180deg,#f4efe6_0%,#e9e1d1_100%)] shadow-[0_12px_24px_rgba(74,97,80,0.10)]">
                   {userAvatarUrl ? (
@@ -100,17 +99,9 @@ export default async function AppPage({
                 <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">RecordApp</p>
                   <h1 className="mt-2 truncate text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">{userDisplayName}</h1>
+                  <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Tu compra, organizada.</p>
                 </div>
               </div>
-
-              <form action={signOutAction}>
-                <button
-                  type="submit"
-                  className="rounded-full border border-[var(--border)] bg-white/88 px-4 py-2 text-sm font-semibold text-[var(--accent-strong)] transition hover:bg-white"
-                >
-                  Cerrar sesion
-                </button>
-              </form>
             </div>
           </header>
 
@@ -128,7 +119,6 @@ export default async function AppPage({
             selectedListId={data.selectedListId}
             activeTab={activeTab}
             pushPublicKey={env.NEXT_PUBLIC_VAPID_PUBLIC_KEY}
-            userDisplayName={userDisplayName}
           />
       </div>
     </main>
