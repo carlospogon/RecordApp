@@ -6,15 +6,16 @@
   color-scheme: light;
   --bg: #faf9f6;
   --surface: #ffffff;
-  --surface-soft: #f4f3f1;
-  --surface-strong: #24342c;
-  --border: rgba(115, 121, 114, 0.22);
-  --text: #1a1c1a;
-  --muted: #6a706b;
-  --accent: #4a6150;
-  --accent-soft: #eef2eb;
-  --accent-strong: #354c3b;
-  --shadow: 0 30px 80px rgba(74, 97, 80, 0.12);
+  --surface-soft: #f2e8d5;
+  --surface-strong: #709682;
+  --border: rgba(112, 150, 130, 0.24);
+  --text: #2e3531;
+  --muted: #6b756d;
+  --accent: #709682;
+  --accent-soft: #f2e8d5;
+  --accent-strong: #567362;
+  --tertiary: #e8a082;
+  --shadow: 0 30px 80px rgba(112, 150, 130, 0.14);
 }
 
 html,
@@ -25,9 +26,9 @@ body {
 
 body {
   background:
-    radial-gradient(circle at top left, rgba(98, 122, 103, 0.08), transparent 26%),
-    radial-gradient(circle at 82% 18%, rgba(232, 223, 204, 0.45), transparent 22%),
-    linear-gradient(180deg, #faf9f6 0%, #f1efea 100%);
+    radial-gradient(circle at top left, rgba(112, 150, 130, 0.12), transparent 24%),
+    radial-gradient(circle at 82% 18%, rgba(232, 160, 130, 0.14), transparent 20%),
+    linear-gradient(180deg, #faf9f6 0%, #f5efe6 100%);
   color: var(--text);
   font-family: "Trebuchet MS", "Avenir Next", "Segoe UI", sans-serif;
 }
@@ -42,5 +43,5 @@ a {
 }
 
 ::selection {
-  background: rgba(74, 97, 80, 0.18);
+  background: rgba(112, 150, 130, 0.24);
 }

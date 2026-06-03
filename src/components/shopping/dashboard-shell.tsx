@@ -1,11 +1,13 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
-import { quickAddReminderItemAction } from "@/app/app/actions";
+import { quickAddReminderItemAction, signOutAction } from "@/app/app/actions";
 import { AddItemForm } from "@/components/shopping/add-item-form";
 import { CreateListForm } from "@/components/shopping/create-list-form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { currentAppRelease, developerSignature } from "@/lib/app-release";
 import {
   ListsPanel,
   RemindersPanel
@@ -35,6 +37,17 @@ function formatDate(value?: string) {
     year: "numeric"
   }).format(new Date(value));
 }
+
+const navigationItems = [
+  { id: "lista", label: "Lista", description: "Compra activa y espacios" },
+  { id: "historial", label: "Historial", description: "Listas anteriores" },
+  { id: "sugerencias", label: "Sugerencias", description: "Recordatorios y frecuencia" },
+  { id: "analisis", label: "Analisis", description: "Lectura de patrones" },
+  { id: "resumen", label: "Resumen", description: "Vista general" }
+] as const;
+
+const sidebarTabIds = new Set(["analisis", "resumen"]);
+const footerTabIds = new Set(["lista", "historial", "sugerencias"]);
 
 function mapRealtimeItem(row: Record<string, unknown>): ShoppingItem {
   return {
@@ -161,7 +174,7 @@ function FlowCard({
           </p>
           {currentList.spaceName ? (
             <p className="mt-3 inline-flex rounded-full bg-[var(--accent-soft)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--accent-strong)]">
-              Espacio · {currentList.spaceName}
+              Espacio Â· {currentList.spaceName}
             </p>
           ) : null}
         </div>
@@ -319,7 +332,7 @@ function SpacesCard({
                     <button type="button" onClick={() => onSelectSpace(active ? null : space.id)} className="min-w-0 flex-1 text-left">
                       <p className="text-base font-semibold text-[var(--text)]">{space.name}</p>
                       <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
-                        Codigo · {space.shareCode}
+                        Codigo Â· {space.shareCode}
                       </p>
                     </button>
                     <div className="flex items-center gap-2">
@@ -688,7 +701,7 @@ function AnalysisPanel({
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                     <div className="rounded-full bg-[var(--surface-soft)] px-3 py-2 text-xs font-semibold text-[var(--muted)]">
                       {recommendation.productName}
-                      {recommendation.quantity ? ` · ${recommendation.quantity}` : ""}
+                      {recommendation.quantity ? ` Â· ${recommendation.quantity}` : ""}
                       {recommendation.unit ? ` ${recommendation.unit}` : ""}
                     </div>
                     <AnalysisAddButton currentListId={currentListId} recommendation={recommendation} />
@@ -731,7 +744,6 @@ export function DashboardShell({
   selectedListId?: string | null;
   scheduledListReminders: { listId: string; title: string; shoppingDate: string; reminderDate: string; isDue: boolean }[];
   pushPublicKey?: string;
-  userDisplayName: string;
 }) {
   const [localActiveTab, setLocalActiveTab] = useState(activeTab);
   const [localCurrentList, setLocalCurrentList] = useState(currentList);
@@ -741,10 +753,16 @@ export function DashboardShell({
   const [localScheduledListReminders, setLocalScheduledListReminders] = useState(scheduledListReminders);
   const [localSelectedListId, setLocalSelectedListId] = useState<string | null>(selectedListId ?? null);
   const [localSelectedSpaceId, setLocalSelectedSpaceId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setLocalActiveTab(activeTab);
   }, [activeTab]);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     setLocalCurrentList(currentList);
@@ -1218,6 +1236,7 @@ export function DashboardShell({
 
   function handleTabChange(nextTab: typeof activeTab) {
     setLocalActiveTab(nextTab);
+    setSidebarOpen(false);
 
     if (typeof window === "undefined") {
       return;
@@ -1238,94 +1257,201 @@ export function DashboardShell({
   }
 
   return (
-    <div className="mt-5 grid gap-5">
-      <div className="overflow-x-auto">
-        <div className="inline-flex min-w-full flex-nowrap gap-2 rounded-[22px] border border-[rgba(115,121,114,0.14)] bg-[rgba(255,255,255,0.72)] p-2 shadow-[0_14px_30px_rgba(74,97,80,0.06)] backdrop-blur-[12px] sm:min-w-0 sm:flex-wrap">
-          {[
-            { id: "lista", label: "Lista" },
-            { id: "historial", label: "Historial" },
-            { id: "sugerencias", label: "Sugerencias" },
-            { id: "analisis", label: "Análisis" },
-            { id: "resumen", label: "Resumen" }
-          ].map((tab) => {
-            const active = localActiveTab === tab.id;
+    <div className="mt-5 grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
+      {sidebarOpen ? (
+        <button
+          type="button"
+          aria-label="Cerrar menú"
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-30 bg-[rgba(13,21,20,0.36)] lg:hidden"
+        />
+      ) : null}
 
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => handleTabChange(tab.id as typeof activeTab)}
-                className={`shrink-0 rounded-full px-4 py-2.5 text-sm font-semibold transition ${
-                  active ? "bg-[var(--surface-strong)] text-white" : "bg-[rgba(250,249,246,0.88)] text-[var(--muted)] hover:bg-white"
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
+      <aside
+        className={`fixed inset-y-0 right-0 z-40 flex w-[84vw] max-w-[18rem] flex-col border-l border-[rgba(112,150,130,0.18)] bg-[rgba(250,249,246,0.96)] p-4 text-[var(--text)] shadow-[0_24px_60px_rgba(92,112,100,0.18)] backdrop-blur-[18px] transition-transform duration-200 lg:sticky lg:top-5 lg:z-10 lg:h-[calc(100vh-4rem)] lg:w-auto lg:max-w-none lg:translate-x-0 lg:rounded-[28px] lg:border lg:border-[var(--border)] lg:bg-[rgba(255,255,255,0.82)] ${
+          sidebarOpen ? "translate-x-0" : "translate-x-[104%]"
+        }`}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-[rgba(112,150,130,0.16)] pb-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Panel</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--text)]">RecordApp</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Analisis, resumen y novedades en una sola vista.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(false)}
+            className="rounded-full border border-[rgba(112,150,130,0.16)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)] transition hover:bg-[var(--surface-soft)] lg:hidden"
+          >
+            Cerrar
+          </button>
         </div>
+
+        <div className="mt-4 flex-1 overflow-y-auto pr-1">
+          <div className="grid gap-2">
+            {navigationItems.filter((tab) => sidebarTabIds.has(tab.id)).map((tab) => {
+              const active = localActiveTab === tab.id;
+
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => handleTabChange(tab.id)}
+                  className={`rounded-[20px] border px-4 py-3 text-left transition ${
+                    active
+                      ? "border-[rgba(112,150,130,0.34)] bg-[rgba(112,150,130,0.12)] text-[var(--text)] shadow-[0_12px_24px_rgba(112,150,130,0.12)]"
+                      : "border-[rgba(112,150,130,0.14)] bg-[rgba(255,255,255,0.72)] text-[var(--text)] hover:bg-[var(--surface-soft)]"
+                  }`}
+                >
+                  <p className="text-sm font-semibold uppercase tracking-[0.08em]">{tab.label}</p>
+                  <p className={`mt-1 text-sm leading-6 ${active ? "text-[var(--text)]" : "text-[var(--muted)]"}`}>{tab.description}</p>
+                </button>
+              );
+            })}
+
+            <Link
+              href="/docs"
+              className="rounded-[20px] border border-[rgba(112,150,130,0.14)] bg-[rgba(255,255,255,0.72)] px-4 py-3 text-left transition hover:bg-[var(--surface-soft)]"
+            >
+              <p className="text-sm font-semibold uppercase tracking-[0.08em] text-[var(--text)]">WhatsNew</p>
+              <p className="mt-1 text-sm leading-6 text-[var(--muted)]">Novedades por version y cambios recientes del producto.</p>
+            </Link>
+          </div>
+        </div>
+
+        <div className="mt-4 border-t border-[rgba(112,150,130,0.16)] pt-4">
+          <form action={signOutAction}>
+            <button
+              type="submit"
+              className="w-full rounded-full border border-[rgba(112,150,130,0.18)] bg-[var(--surface)] px-4 py-3 text-sm font-semibold text-[var(--text)] transition hover:bg-[var(--surface-soft)]"
+            >
+              Cerrar sesión
+            </button>
+          </form>
+          <div className="mt-3 rounded-[18px] border border-[rgba(112,150,130,0.14)] bg-[var(--surface-soft)] px-3 py-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Versión</p>
+              <p className="text-sm font-semibold text-[var(--accent-strong)]">v{currentAppRelease.version}</p>
+            </div>
+            <p className="mt-1 text-xs leading-5 text-[var(--muted)]">{currentAppRelease.title}</p>
+          </div>
+          <p className="mt-3 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">{developerSignature}</p>
+        </div>
+      </aside>
+
+      <div className="grid min-w-0 gap-5 pb-28">
+        <div className="flex items-center justify-between rounded-[22px] border border-[rgba(112,150,130,0.14)] bg-[rgba(255,255,255,0.72)] px-4 py-3 shadow-[0_14px_30px_rgba(112,150,130,0.08)] backdrop-blur-[12px] lg:hidden">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">Vista</p>
+            <p className="mt-1 text-sm font-semibold text-[var(--text)]">{navigationItems.find((tab) => tab.id === localActiveTab)?.label}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Abrir menú"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(112,150,130,0.16)] bg-[var(--surface-soft)] text-[var(--accent-strong)] transition hover:bg-[rgba(112,150,130,0.14)]"
+          >
+            <span className="flex flex-col gap-1.5">
+              <span className="block h-0.5 w-4 rounded-full bg-current" />
+              <span className="block h-0.5 w-4 rounded-full bg-current" />
+              <span className="block h-0.5 w-4 rounded-full bg-current" />
+            </span>
+          </button>
+        </div>
+
+        {localActiveTab === "lista" ? (
+          <>
+            <SpacesCard
+              spaces={localSpaces}
+              selectedSpaceId={localSelectedSpaceId}
+              onSelectSpace={setLocalSelectedSpaceId}
+              onSpaceCreated={handleSpaceCreated}
+              onSpaceJoined={handleSpaceJoined}
+              onListsImported={handleImportedSpaceLists}
+              onSpaceDeleted={handleSpaceDeleted}
+            />
+            <FlowCard
+              currentList={localCurrentList}
+              spaces={localSpaces}
+              selectedSpaceId={localSelectedSpaceId}
+              catalogProducts={catalogProducts}
+              onItemCreated={handleItemCreated}
+              onOptimisticItemCreated={handleOptimisticItemCreated}
+              onItemDeleted={handleItemDeleted}
+              onFinalizeList={handleFinalizeList}
+              onListCreated={handleListCreated}
+              onOptimisticListCreated={handleOptimisticListCreated}
+              onListCreationFailed={handleListCreationFailed}
+              onListJoined={handleListJoined}
+            />
+            {localCurrentList ? (
+              <section className="rounded-[28px] bg-white p-4 shadow-[0_16px_40px_rgba(18,40,28,0.08)] sm:p-5">
+                <ItemsList items={localItems} onDelete={handleItemDeleted} onToggle={handleItemToggled} />
+              </section>
+            ) : null}
+          </>
+        ) : null}
+
+        {localActiveTab === "historial" ? (
+          <ListsPanel lists={localLists} selectedListId={localCurrentList?.id ?? null} onDeleteList={handleDeleteLists} />
+        ) : null}
+
+        {localActiveTab === "sugerencias" ? (
+          <RemindersPanel
+            reminders={reminders}
+            currentListId={localCurrentList?.id}
+            frequentProducts={frequentProducts}
+            catalogProducts={catalogProducts}
+            currentItems={localItems}
+            suggestionItems={suggestionItems}
+            scheduledListReminders={localScheduledListReminders}
+            pushPublicKey={pushPublicKey}
+          />
+        ) : null}
+
+        {localActiveTab === "analisis" ? <AnalysisPanel analysis={analysis} currentListId={localCurrentList?.id} /> : null}
+
+        {localActiveTab === "resumen" ? (
+          <SummaryPanel
+            items={localItems}
+            lists={localLists}
+            reminders={reminders}
+            frequentProducts={localFrequentProducts.length > 0 ? localFrequentProducts : frequentProducts}
+          />
+        ) : null}
       </div>
 
-      {localActiveTab === "lista" ? (
-        <>
-          <SpacesCard
-            spaces={localSpaces}
-            selectedSpaceId={localSelectedSpaceId}
-            onSelectSpace={setLocalSelectedSpaceId}
-            onSpaceCreated={handleSpaceCreated}
-            onSpaceJoined={handleSpaceJoined}
-            onListsImported={handleImportedSpaceLists}
-            onSpaceDeleted={handleSpaceDeleted}
-          />
-          <FlowCard
-            currentList={localCurrentList}
-            spaces={localSpaces}
-            selectedSpaceId={localSelectedSpaceId}
-            catalogProducts={catalogProducts}
-            onItemCreated={handleItemCreated}
-            onOptimisticItemCreated={handleOptimisticItemCreated}
-            onItemDeleted={handleItemDeleted}
-            onFinalizeList={handleFinalizeList}
-            onListCreated={handleListCreated}
-            onOptimisticListCreated={handleOptimisticListCreated}
-            onListCreationFailed={handleListCreationFailed}
-            onListJoined={handleListJoined}
-          />
-          {localCurrentList ? (
-            <section className="rounded-[28px] bg-white p-4 shadow-[0_16px_40px_rgba(18,40,28,0.08)] sm:p-5">
-              <ItemsList items={localItems} onDelete={handleItemDeleted} onToggle={handleItemToggled} />
-            </section>
-          ) : null}
-        </>
-      ) : null}
+      {isClient
+        ? createPortal(
+            <div
+              className={`fixed inset-x-0 bottom-[max(1rem,env(safe-area-inset-bottom))] z-[100] flex justify-center px-3 transition-all duration-200 sm:px-6 ${
+                sidebarOpen ? "pointer-events-none opacity-0 blur-sm" : "pointer-events-none opacity-100"
+              }`}
+            >
+              <div className="pointer-events-auto grid w-[min(100%,34rem)] grid-cols-3 gap-2 rounded-[24px] border border-[rgba(112,150,130,0.14)] bg-[rgba(250,249,246,0.96)] p-2 shadow-[0_20px_40px_rgba(112,150,130,0.18)] backdrop-blur-[18px]">
+                {navigationItems.filter((tab) => footerTabIds.has(tab.id)).map((tab) => {
+                  const active = localActiveTab === tab.id;
 
-      {localActiveTab === "historial" ? (
-        <ListsPanel lists={localLists} selectedListId={localCurrentList?.id ?? null} onDeleteList={handleDeleteLists} />
-      ) : null}
-
-      {localActiveTab === "sugerencias" ? (
-        <RemindersPanel
-          reminders={reminders}
-          currentListId={localCurrentList?.id}
-          frequentProducts={frequentProducts}
-          catalogProducts={catalogProducts}
-          currentItems={localItems}
-          suggestionItems={suggestionItems}
-          scheduledListReminders={localScheduledListReminders}
-          pushPublicKey={pushPublicKey}
-        />
-      ) : null}
-
-      {localActiveTab === "analisis" ? <AnalysisPanel analysis={analysis} currentListId={localCurrentList?.id} /> : null}
-
-      {localActiveTab === "resumen" ? (
-        <SummaryPanel
-          items={localItems}
-          lists={localLists}
-          reminders={reminders}
-          frequentProducts={localFrequentProducts.length > 0 ? localFrequentProducts : frequentProducts}
-        />
-      ) : null}
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => handleTabChange(tab.id)}
+                      className={`rounded-[18px] px-3 py-3 text-sm font-semibold transition ${
+                        active
+                          ? "bg-[var(--surface-strong)] text-white shadow-[0_12px_24px_rgba(112,150,130,0.18)]"
+                          : "bg-[rgba(255,255,255,0.72)] text-[var(--accent-strong)] hover:bg-[var(--surface-soft)]"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }
