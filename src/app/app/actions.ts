@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { resolveGlobalProductCategory } from "@/lib/shopping/product-category-resolver";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { findDuplicateNotice, requireAuthenticatedUser } from "@/lib/supabase/queries";
 import { normalizeProductName } from "@/lib/shopping/normalize-product";
@@ -20,7 +21,6 @@ const createItemSchema = z.object({
   name: z.string().trim().min(1).max(120),
   quantity: z.string().trim().max(40).optional(),
   unit: z.string().trim().max(40).optional(),
-  section: z.enum(["fruta", "verdura", "lacteos", "huevos", "panaderia", "carne", "pescado", "despensa", "bebidas", "hogar", "otros"]).optional(),
   notes: z.string().trim().max(240).optional()
 });
 
@@ -37,7 +37,6 @@ const quickAddItemSchema = z.object({
   name: z.string().trim().min(1).max(120),
   quantity: z.string().trim().max(40).optional(),
   unit: z.string().trim().max(40).optional(),
-  section: z.enum(["fruta", "verdura", "lacteos", "huevos", "panaderia", "carne", "pescado", "despensa", "bebidas", "hogar", "otros"]).optional(),
   notes: z.string().trim().max(240).optional()
 });
 
@@ -184,7 +183,6 @@ export async function createItemAction(_: ActionState, formData: FormData): Prom
     name: formData.get("name") ?? "",
     quantity: formData.get("quantity") ?? "",
     unit: formData.get("unit") ?? "",
-    section: formData.get("section") ?? "otros",
     notes: formData.get("notes") ?? ""
   });
 
@@ -202,6 +200,7 @@ export async function createItemAction(_: ActionState, formData: FormData): Prom
   const duplicateNotice = await findDuplicateNotice(parsed.data.name);
   const supabase = await createSupabaseServerClient();
   let finalUnit = parsed.data.unit || null;
+  let finalSection = "";
 
   try {
     if (parsed.data.productId) {
@@ -212,7 +211,13 @@ export async function createItemAction(_: ActionState, formData: FormData): Prom
         .maybeSingle();
 
       finalUnit = parsed.data.unit || catalogProduct?.default_unit || null;
-      const finalSection = parsed.data.section || catalogProduct?.category || "otros";
+      finalSection =
+        catalogProduct?.category && catalogProduct.category !== "otros"
+          ? catalogProduct.category
+          : await resolveGlobalProductCategory(supabase, normalizedName);
+      if (finalSection && finalSection !== "otros" && catalogProduct?.category !== finalSection) {
+        await supabase.from("shopping_products").update({ category: finalSection }).eq("id", parsed.data.productId).eq("user_id", user.id);
+      }
       const { data, error } = await supabase
         .from("shopping_items")
         .insert({
@@ -222,7 +227,7 @@ export async function createItemAction(_: ActionState, formData: FormData): Prom
           normalized_name: normalizedName,
           quantity: parsed.data.quantity || null,
           unit: finalUnit,
-          section: finalSection,
+          section: finalSection || "otros",
           notes: parsed.data.notes || null,
           status: "pending"
         })
@@ -249,7 +254,13 @@ export async function createItemAction(_: ActionState, formData: FormData): Prom
 
       if (existingProduct) {
         finalUnit = parsed.data.unit || existingProduct.default_unit || null;
-        const finalSection = parsed.data.section || existingProduct.category || "otros";
+        finalSection =
+          existingProduct.category && existingProduct.category !== "otros"
+            ? existingProduct.category
+            : await resolveGlobalProductCategory(supabase, normalizedName);
+        if (finalSection && finalSection !== "otros" && existingProduct.category !== finalSection) {
+          await supabase.from("shopping_products").update({ category: finalSection }).eq("id", existingProduct.id).eq("user_id", user.id);
+        }
         const { data, error } = await supabase
           .from("shopping_items")
           .insert({
@@ -259,7 +270,7 @@ export async function createItemAction(_: ActionState, formData: FormData): Prom
             normalized_name: normalizedName,
             quantity: parsed.data.quantity || null,
             unit: finalUnit,
-            section: finalSection,
+            section: finalSection || "otros",
             notes: parsed.data.notes || null,
             status: "pending"
           })
@@ -278,18 +289,23 @@ export async function createItemAction(_: ActionState, formData: FormData): Prom
           createdItemId: data?.id
         };
       } else {
+        finalSection = await resolveGlobalProductCategory(supabase, normalizedName);
         await supabase.from("shopping_products").insert({
           user_id: user.id,
           name: parsed.data.name,
           normalized_name: normalizedName,
           default_unit: parsed.data.unit || null,
-          category: "otros",
+          category: finalSection || "otros",
           active: true
         });
       }
     }
   } catch {
     finalUnit = parsed.data.unit || null;
+  }
+
+  if (!finalSection) {
+    finalSection = await resolveGlobalProductCategory(supabase, normalizedName);
   }
 
   const { data, error } = await supabase
@@ -301,7 +317,7 @@ export async function createItemAction(_: ActionState, formData: FormData): Prom
       normalized_name: normalizedName,
       quantity: parsed.data.quantity || null,
       unit: finalUnit,
-      section: parsed.data.section || "otros",
+      section: finalSection || "otros",
       notes: parsed.data.notes || null,
       status: "pending"
     })
@@ -327,7 +343,6 @@ export async function quickAddReminderItemAction(formData: FormData) {
     name: formData.get("name") ?? "",
     quantity: formData.get("quantity") ?? "",
     unit: formData.get("unit") ?? "",
-    section: formData.get("section") ?? "otros",
     notes: formData.get("notes") ?? ""
   });
 
@@ -343,6 +358,7 @@ export async function quickAddReminderItemAction(formData: FormData) {
   }
 
   const supabase = await createSupabaseServerClient();
+  const finalSection = await resolveGlobalProductCategory(supabase, normalizedName);
   await supabase.from("shopping_items").insert({
     list_id: parsed.data.listId,
     user_id: user.id,
@@ -350,7 +366,7 @@ export async function quickAddReminderItemAction(formData: FormData) {
     normalized_name: normalizedName,
     quantity: parsed.data.quantity || null,
     unit: parsed.data.unit || null,
-    section: parsed.data.section || "otros",
+    section: finalSection || "otros",
     notes: parsed.data.notes || null,
     status: "pending"
   });

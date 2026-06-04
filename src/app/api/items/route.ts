@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolveGlobalProductCategory } from "@/lib/shopping/product-category-resolver";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { normalizeProductName } from "@/lib/shopping/normalize-product";
@@ -23,7 +24,6 @@ export async function POST(request: Request) {
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const quantity = typeof body.quantity === "string" ? body.quantity.trim() : "";
   const unit = typeof body.unit === "string" ? body.unit.trim() : "";
-  const section = typeof body.section === "string" ? body.section.trim() : "";
   const notes = typeof body.notes === "string" ? body.notes.trim() : "";
 
   if (!listId || !name) {
@@ -53,6 +53,7 @@ export async function POST(request: Request) {
   }
 
   let finalUnit = unit || null;
+  let finalSection = "";
 
   try {
     if (productId) {
@@ -64,7 +65,13 @@ export async function POST(request: Request) {
         .maybeSingle();
 
       finalUnit = unit || catalogProduct?.default_unit || null;
-      const finalSection = section || catalogProduct?.category || null;
+      finalSection =
+        catalogProduct?.category && catalogProduct.category !== "otros"
+          ? catalogProduct.category
+          : await resolveGlobalProductCategory(supabase, normalizedName);
+      if (productId && finalSection && finalSection !== "otros" && catalogProduct?.category !== finalSection) {
+        await supabase.from("shopping_products").update({ category: finalSection }).eq("id", productId).eq("user_id", user.id);
+      }
       const now = new Date().toISOString();
       const { error } = await admin
         .from("shopping_items")
@@ -76,7 +83,7 @@ export async function POST(request: Request) {
           normalized_name: normalizedName,
           quantity: quantity || null,
           unit: finalUnit,
-          section: finalSection,
+          section: finalSection || "otros",
           notes: notes || null,
           status: "pending"
         });
@@ -93,7 +100,7 @@ export async function POST(request: Request) {
           normalizedName,
           quantity: quantity || null,
           unit: finalUnit,
-          section: finalSection,
+          section: finalSection || "otros",
           notes: notes || null,
           status: "pending",
           createdAt: now,
@@ -111,7 +118,13 @@ export async function POST(request: Request) {
 
       if (existingProduct) {
         finalUnit = unit || existingProduct.default_unit || null;
-        const finalSection = section || existingProduct.category || null;
+        finalSection =
+          existingProduct.category && existingProduct.category !== "otros"
+            ? existingProduct.category
+            : await resolveGlobalProductCategory(supabase, normalizedName);
+        if (finalSection && finalSection !== "otros" && existingProduct.category !== finalSection) {
+          await supabase.from("shopping_products").update({ category: finalSection }).eq("id", existingProduct.id).eq("user_id", user.id);
+        }
         const now = new Date().toISOString();
         const { error } = await admin
           .from("shopping_items")
@@ -123,7 +136,7 @@ export async function POST(request: Request) {
             normalized_name: normalizedName,
             quantity: quantity || null,
             unit: finalUnit,
-            section: finalSection,
+            section: finalSection || "otros",
             notes: notes || null,
             status: "pending"
           });
@@ -140,7 +153,7 @@ export async function POST(request: Request) {
             normalizedName,
             quantity: quantity || null,
             unit: finalUnit,
-            section: finalSection,
+            section: finalSection || "otros",
             notes: notes || null,
             status: "pending",
             createdAt: now,
@@ -149,12 +162,13 @@ export async function POST(request: Request) {
           }
         });
       } else {
+        finalSection = await resolveGlobalProductCategory(supabase, normalizedName);
         await supabase.from("shopping_products").insert({
           user_id: user.id,
           name,
           normalized_name: normalizedName,
           default_unit: unit || null,
-          category: "otros",
+          category: finalSection || "otros",
           active: true
         });
       }
@@ -163,7 +177,9 @@ export async function POST(request: Request) {
     finalUnit = unit || null;
   }
 
-  const finalSection = section || "otros";
+  if (!finalSection) {
+    finalSection = await resolveGlobalProductCategory(supabase, normalizedName);
+  }
   const now = new Date().toISOString();
   const { error } = await admin
     .from("shopping_items")

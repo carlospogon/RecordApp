@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { inferCategoryFromNormalizedName } from "@/lib/shopping/product-category-inference";
+import { normalizeProductName } from "@/lib/shopping/normalize-product";
 import { ProductCatalogItem, ShoppingDuplicateNotice, ShoppingItem } from "@/types/shopping";
 
 type AddItemFormProps = {
@@ -14,20 +16,6 @@ type AddItemFormProps = {
 type CreateItemResponse = {
   item: ShoppingItem;
 };
-
-const itemSections = [
-  { value: "fruta", label: "Fruta" },
-  { value: "verdura", label: "Verdura" },
-  { value: "lacteos", label: "Lacteos" },
-  { value: "huevos", label: "Huevos" },
-  { value: "panaderia", label: "Panaderia" },
-  { value: "carne", label: "Carne" },
-  { value: "pescado", label: "Pescado" },
-  { value: "despensa", label: "Despensa" },
-  { value: "bebidas", label: "Bebidas" },
-  { value: "hogar", label: "Hogar" },
-  { value: "otros", label: "Otros" }
-] as const;
 
 function formatDate(value?: string) {
   if (!value) {
@@ -47,16 +35,29 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("");
-  const [section, setSection] = useState<(typeof itemSections)[number]["value"]>("otros");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [duplicateNotice, setDuplicateNotice] = useState<ShoppingDuplicateNotice | null>(null);
   const [createdItemId, setCreatedItemId] = useState<string | null>(null);
-  const selectedProduct = useMemo(
-    () => availableProducts.find((product) => product.name.toLowerCase() === name.trim().toLowerCase()),
-    [availableProducts, name]
-  );
+  const normalizedInput = useMemo(() => normalizeProductName(name), [name]);
+  const selectedProduct = useMemo(() => availableProducts.find((product) => product.normalizedName === normalizedInput), [availableProducts, normalizedInput]);
+  const filteredSuggestions = useMemo(() => {
+    if (!normalizedInput) {
+      return availableProducts.slice(0, 6);
+    }
+
+    return availableProducts
+      .filter((product) => product.normalizedName.includes(normalizedInput) || normalizeProductName(product.name).includes(normalizedInput))
+      .slice(0, 6);
+  }, [availableProducts, normalizedInput]);
+  const inferredSection = useMemo(() => {
+    if (selectedProduct?.category && selectedProduct.category !== "otros") {
+      return selectedProduct.category;
+    }
+
+    return normalizedInput ? inferCategoryFromNormalizedName(normalizedInput) : null;
+  }, [normalizedInput, selectedProduct]);
   const listReady = !listId.startsWith("temp-list-");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -74,10 +75,10 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
       id: itemId,
       listId,
       name,
-      normalizedName: (selectedProduct?.normalizedName ?? name.trim().toLowerCase()).trim(),
+      normalizedName: selectedProduct?.normalizedName ?? normalizedInput,
       quantity: quantity || null,
       unit: unit || selectedProduct?.defaultUnit || null,
-      section: section || selectedProduct?.category || "otros",
+      section: inferredSection ?? "otros",
       notes: notes || null,
       status: "pending",
       createdAt: new Date().toISOString(),
@@ -89,7 +90,6 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
     setName("");
     setQuantity("");
     setUnit("");
-    setSection("otros");
     setNotes("");
 
     startTransition(async () => {
@@ -106,7 +106,6 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
             name,
             quantity,
             unit: unit || selectedProduct?.defaultUnit || "",
-            section: section || selectedProduct?.category || "otros",
             notes
           })
         });
@@ -179,18 +178,12 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
           <div className="rounded-[24px] border border-[var(--border)] bg-white p-4 shadow-[0_10px_24px_rgba(18,40,28,0.05)]">
             <input
               type="text"
-              list="recordapp-product-catalog"
               value={name}
               onChange={(event) => setName(event.currentTarget.value)}
               placeholder="Huevos, patatas, arroz..."
               required
               className="w-full border-0 bg-transparent px-1 py-2 text-lg font-medium text-[var(--text)] outline-none placeholder:text-[var(--muted)]"
             />
-            <datalist id="recordapp-product-catalog">
-              {availableProducts.map((product) => (
-                <option key={product.normalizedName} value={product.name} />
-              ))}
-            </datalist>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {selectedProduct ? (
@@ -198,9 +191,9 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
                   <span className="rounded-full bg-[var(--accent-soft)] px-3 py-1 text-xs font-semibold text-[var(--accent-strong)]">
                     Producto del catalogo
                   </span>
-                  {selectedProduct.category ? (
+                  {inferredSection ? (
                     <span className="rounded-full bg-[#eef3ef] px-3 py-1 text-xs font-semibold capitalize text-[var(--muted)]">
-                      {selectedProduct.category}
+                      {inferredSection}
                     </span>
                   ) : null}
                   {selectedProduct.defaultUnit ? (
@@ -218,7 +211,32 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
                   {availableProducts.length} productos sugeridos
                 </span>
               )}
+              {inferredSection ? (
+                <span className="rounded-full bg-[#eef3ef] px-3 py-1 text-xs font-semibold capitalize text-[var(--muted)]">
+                  Categoria automatica: {inferredSection}
+                </span>
+              ) : null}
             </div>
+
+            {filteredSuggestions.length > 0 ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {filteredSuggestions.map((product) => (
+                  <button
+                    key={product.normalizedName}
+                    type="button"
+                    onClick={() => {
+                      setName(product.name);
+                      if (product.defaultUnit) {
+                        setUnit((current) => current || product.defaultUnit || "");
+                      }
+                    }}
+                    className="rounded-full border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-strong)] transition hover:border-[var(--accent)] hover:bg-white"
+                  >
+                    {product.name}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -237,19 +255,7 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
               className="rounded-[18px] border border-[var(--border)] bg-white px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
             />
           </div>
-
-          <div className="grid gap-3 sm:grid-cols-[0.8fr_1.2fr]">
-            <select
-              value={section}
-              onChange={(event) => setSection(event.currentTarget.value as (typeof itemSections)[number]["value"])}
-              className="rounded-[18px] border border-[var(--border)] bg-white px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
-            >
-              {itemSections.map((itemSection) => (
-                <option key={itemSection.value} value={itemSection.value}>
-                  {itemSection.label}
-                </option>
-              ))}
-            </select>
+          <div className="grid gap-3">
             <input
               type="text"
               value={notes}
