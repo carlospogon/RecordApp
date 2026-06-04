@@ -15,6 +15,8 @@ function singularizeSpanishWord(value: string) {
 export function normalizeProductName(value: string) {
   const cleaned = value
     .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(quantityPrefixPattern, "")
     .replace(/[.,;:!?()[\]{}]/g, " ")
     .replace(/\s+/g, " ")

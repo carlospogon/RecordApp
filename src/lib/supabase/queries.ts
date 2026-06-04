@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 import { buildShoppingAnalysis } from "@/lib/shopping/analysis";
+import { inferCategoryFromNormalizedName } from "@/lib/shopping/product-category-inference";
 import { buildReminders, buildProductInsights } from "@/lib/shopping/product-insights";
 import { normalizeProductName } from "@/lib/shopping/normalize-product";
 import {
@@ -119,12 +120,15 @@ function mapItemRow(row: ShoppingItemRow): ShoppingItem {
 }
 
 function mapProductRow(row: ShoppingProductRow): ProductCatalogItem {
+  const resolvedCategory =
+    row.category && row.category !== "otros" ? row.category : inferCategoryFromNormalizedName(row.normalized_name);
+
   return {
     id: row.id,
     name: row.name,
     normalizedName: row.normalized_name,
     defaultUnit: row.default_unit,
-    category: row.category,
+    category: resolvedCategory,
     active: row.active,
     source: "catalog"
   };

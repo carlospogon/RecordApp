@@ -10,6 +10,19 @@ export const developerSignature = "A CPG Dynamics Product";
 
 export const appReleaseNotes: AppReleaseNote[] = [
   {
+    version: "1.7.0",
+    title: "Smart Shopping Flow",
+    releaseDate: "2026-06-04",
+    summary:
+      "Hola! Sabias que en RecordApp hemos anadido nuevas cositas? Ahora los productos pueden organizarse por secciones, llevar notas utiles, entrar en un modo compra mas claro y categorizarse automaticamente cuando escribes cosas como platanos, leche o queso. Desde el equipo de RecordApp esperamos que te gusten!",
+    highlights: [
+      "Tus productos ahora se agrupan por secciones como Fruta, Lacteos u Hogar para que la lista tenga mas sentido al comprar.",
+      "Cada producto puede llevar una nota rapida, por ejemplo: sin gluten, marca habitual o pasillo.",
+      "Hemos anadido un modo compra mas tactil para marcar productos sobre la marcha sin perder el contexto de la lista.",
+      "La categoria se detecta automaticamente al escribir nombres como platanos, banana, leche o queso, incluso con plurales o tildes."
+    ]
+  },
+  {
     version: "1.6.0",
     title: "Navigation And Product Polish",
     releaseDate: "2026-06-03",

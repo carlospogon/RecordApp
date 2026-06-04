@@ -68,6 +68,7 @@ function mapRealtimeItem(row: Record<string, unknown>): ShoppingItem {
 
 function FlowCard({
   currentList,
+  currentItemsCount,
   spaces,
   selectedSpaceId,
   catalogProducts,
@@ -81,6 +82,7 @@ function FlowCard({
   onListJoined
 }: {
   currentList: ShoppingList | null;
+  currentItemsCount: number;
   spaces: ShoppingSpace[];
   selectedSpaceId?: string | null;
   catalogProducts: ProductCatalogItem[];
@@ -172,7 +174,7 @@ function FlowCard({
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Paso 2</p>
           <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--text)]">{currentList.title || "Lista actual"}</h2>
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            Fecha: {formatDate(currentList.shoppingDate)} - {currentList.itemCount ?? 0} productos guardados
+            Fecha: {formatDate(currentList.shoppingDate)} - {currentItemsCount} productos guardados
           </p>
           {currentList.spaceName ? (
             <p className="mt-3 inline-flex rounded-full bg-[var(--accent-soft)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--accent-strong)]">
@@ -812,7 +814,7 @@ export function DashboardShell({
             let inserted = false;
             setLocalItems((previous) => {
               if (previous.some((item) => item.id === nextItem.id)) {
-                return previous;
+                return previous.map((item) => (item.id === nextItem.id ? nextItem : item));
               }
 
               inserted = true;
@@ -958,7 +960,11 @@ export function DashboardShell({
   }
 
   function handleItemCreated(item: ShoppingItem) {
-    setLocalItems((previous) => (previous.some((current) => current.id === item.id) ? previous : [...previous, item]));
+    setLocalItems((previous) =>
+      previous.some((current) => current.id === item.id)
+        ? previous.map((current) => (current.id === item.id ? item : current))
+        : [...previous, item]
+    );
   }
 
   function handleItemDeleted(itemId: string) {
@@ -1374,6 +1380,7 @@ export function DashboardShell({
             />
             <FlowCard
               currentList={localCurrentList}
+              currentItemsCount={localItems.length}
               spaces={localSpaces}
               selectedSpaceId={localSelectedSpaceId}
               catalogProducts={catalogProducts}
