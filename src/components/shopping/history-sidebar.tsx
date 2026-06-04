@@ -97,7 +97,7 @@ function AddAgainButton({
           compact ? "px-3 py-2 text-xs" : "px-4 py-2.5 text-sm"
         }`}
       >
-        Anadir otra vez
+        Añadir otra vez
       </button>
     </form>
   );
@@ -151,7 +151,7 @@ export function RemindersPanel({
         category: catalogProduct?.category,
         estimateSourceLabel: insight?.averageIntervalDays
           ? "Tu ritmo real de compra"
-          : `Estimacion por categoria: ${getCategoryEstimateLabel(catalogProduct?.category)}`
+          : `Estimación por categoría: ${getCategoryEstimateLabel(catalogProduct?.category)}`
       };
     });
   }, [catalogProducts, currentItems, frequentProducts]);
@@ -169,8 +169,8 @@ export function RemindersPanel({
                   Recuerda que tienes una lista pendiente para {formatDate(scheduledListReminders[0]?.shoppingDate)}
                 </h4>
                 <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                  Te la recordaremos desde el {formatDate(scheduledListReminders[0]?.reminderDate)}. Si activas notificaciones push, tambien
-                  podras recibir el aviso fuera de la app.
+                  Te la recordaremos desde el {formatDate(scheduledListReminders[0]?.reminderDate)}. Si activas notificaciones push, también
+                  podrás recibir el aviso fuera de la app.
                 </p>
               </div>
               <PushRemindersButton publicKey={pushPublicKey} />
@@ -261,13 +261,13 @@ export function RemindersPanel({
                   <span className={`h-3 w-3 rounded-full ${product.progress >= 80 ? "bg-[#de6a6a]" : "bg-[#d8e5db]"}`} />
                 </div>
                 <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-                  Han pasado {product.elapsedDays} dias desde que lo marcaste como comprado.
+                  Han pasado {product.elapsedDays} días desde que lo marcaste como comprado.
                   {product.hasRealPattern
-                    ? ` Tu ritmo real apunta a unos ${product.estimatedWindowDays} dias.`
-                    : ` ${product.estimateSourceLabel} suele moverse en torno a ${product.estimatedWindowDays} dias.`}{" "}
+                    ? ` Tu ritmo real apunta a unos ${product.estimatedWindowDays} días.`
+                    : ` ${product.estimateSourceLabel} suele moverse en torno a ${product.estimatedWindowDays} días.`}{" "}
                   {product.progress >= 80
-                    ? `Parece que ya va haciendo falta ${product.name.toLowerCase()}, lo anadimos?`
-                    : `Todavia deberia quedarte margen antes de reponer ${product.name.toLowerCase()}.`}
+                    ? `Parece que ya va haciendo falta ${product.name.toLowerCase()}, ¿lo añadimos?`
+                    : `Todavía debería quedarte margen antes de reponer ${product.name.toLowerCase()}.`}
                 </p>
               </div>
 
@@ -294,7 +294,7 @@ export function RemindersPanel({
         ) : (
         <div className="rounded-[22px] bg-[var(--surface-soft)] p-4">
           <p className="text-sm font-medium text-[var(--muted)]">
-            En cuanto marques productos como comprados, esta seccion empezara a calcular la reposicion desde esa fecha, aunque la lista ya este cerrada.
+            En cuanto marques productos como comprados, esta sección empezará a calcular la reposición desde esa fecha, aunque la lista ya esté cerrada.
           </p>
         </div>
         )}
@@ -310,7 +310,7 @@ export function FrequentProductsPanel({ frequentProducts }: { frequentProducts: 
   return (
     <PanelFrame eyebrow="Resumen" title="Productos frecuentes">
       {frequentProducts.length === 0 ? (
-        <p className="text-sm leading-6 text-[var(--muted)]">Aun no tenemos suficiente historial para destacar productos recurrentes.</p>
+        <p className="text-sm leading-6 text-[var(--muted)]">Aún no tenemos suficiente historial para destacar productos recurrentes.</p>
       ) : (
         <div className="grid gap-4">
           {topProducts.map((product) => (
@@ -330,8 +330,8 @@ export function FrequentProductsPanel({ frequentProducts }: { frequentProducts: 
                     />
                   </div>
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted)]">
-                    <span>Ultima vez: {formatDate(product.lastSeenAt)}</span>
-                    <span>{product.averageIntervalDays ? `cada ${product.averageIntervalDays} dias` : "sin patron estable"}</span>
+                    <span>Última vez: {formatDate(product.lastSeenAt)}</span>
+                    <span>{product.averageIntervalDays ? `cada ${product.averageIntervalDays} días` : "sin patrón estable"}</span>
                   </div>
                 </div>
               </div>
@@ -389,7 +389,7 @@ function CatalogProductCard({ product }: { product: ProductCatalogItem }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[var(--muted)]">
-              {product.source === "catalog" ? "Catalogo" : "Detectado desde historial"}
+              {product.source === "catalog" ? "Catálogo" : "Detectado desde historial"}
             </span>
             <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[var(--muted)]">
               {product.normalizedName}
@@ -413,10 +413,10 @@ function CatalogProductCard({ product }: { product: ProductCatalogItem }) {
 
 export function ProductCatalogPanel({ catalogProducts }: { catalogProducts: ProductCatalogItem[] }) {
   return (
-    <PanelFrame eyebrow="Catalogo" title="Productos controlados">
+    <PanelFrame eyebrow="Catálogo" title="Productos controlados">
       {catalogProducts.length === 0 ? (
         <p className="text-sm leading-6 text-[var(--muted)]">
-          Todavia no hay productos en el catalogo. Se iran creando segun anadas nuevas referencias a tus listas.
+          Todavía no hay productos en el catálogo. Se irán creando según añadas nuevas referencias a tus listas.
         </p>
       ) : (
         <div className="grid gap-3">
@@ -469,7 +469,7 @@ export function ListsPanel({
   return (
     <PanelFrame eyebrow="Historial" title="Listas anteriores">
       {lists.length === 0 ? (
-        <p className="text-sm leading-6 text-[var(--muted)]">Todavia no hay listas historicas. Crea la primera para empezar a comparar compras.</p>
+        <p className="text-sm leading-6 text-[var(--muted)]">Todavía no hay listas históricas. Crea la primera para empezar a comparar compras.</p>
       ) : (
         <>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[22px] bg-[var(--surface-soft)] p-4">
@@ -583,7 +583,7 @@ export function ListsPanel({
           {lists.length > pageSize ? (
             <div className="mt-4 flex items-center justify-between gap-3">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
-                Pagina {safePage + 1} de {totalPages}
+                Página {safePage + 1} de {totalPages}
               </p>
               <div className="flex gap-2">
                 <button

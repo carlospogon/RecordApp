@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   const normalizedName = normalizeProductName(name);
 
   if (!normalizedName) {
-    return NextResponse.json({ error: "El producto no es valido." }, { status: 400 });
+    return NextResponse.json({ error: "El producto no es válido." }, { status: 400 });
   }
 
   const supabase = await createSupabaseServerClient();

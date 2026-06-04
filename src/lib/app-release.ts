@@ -14,24 +14,24 @@ export const appReleaseNotes: AppReleaseNote[] = [
     title: "Smart Shopping Flow",
     releaseDate: "2026-06-04",
     summary:
-      "Hola! Sabias que en RecordApp hemos anadido nuevas cositas? Ahora los productos pueden organizarse por secciones, llevar notas utiles, entrar en un modo compra mas claro y categorizarse automaticamente cuando escribes cosas como platanos, leche o queso. Desde el equipo de RecordApp esperamos que te gusten!",
+      "¡Hola! ¿Sabías que en RecordApp hemos añadido nuevas cositas? Ahora los productos pueden organizarse por secciones, llevar notas útiles, entrar en un modo compra más claro y categorizarse automáticamente cuando escribes cosas como plátanos, leche o queso. Desde el equipo de RecordApp esperamos que te gusten.",
     highlights: [
-      "Tus productos ahora se agrupan por secciones como Fruta, Lacteos u Hogar para que la lista tenga mas sentido al comprar.",
-      "Cada producto puede llevar una nota rapida, por ejemplo: sin gluten, marca habitual o pasillo.",
-      "Hemos anadido un modo compra mas tactil para marcar productos sobre la marcha sin perder el contexto de la lista.",
-      "La categoria se detecta automaticamente al escribir nombres como platanos, banana, leche o queso, incluso con plurales o tildes."
+      "Tus productos ahora se agrupan por secciones como Fruta, Lácteos u Hogar para que la lista tenga más sentido al comprar.",
+      "Cada producto puede llevar una nota rápida, por ejemplo: sin gluten, marca habitual o pasillo.",
+      "Hemos añadido un modo compra más táctil para marcar productos sobre la marcha sin perder el contexto de la lista.",
+      "La categoría se detecta automáticamente al escribir nombres como plátanos, banana, leche o queso, incluso con plurales o tildes."
     ]
   },
   {
     version: "1.6.0",
     title: "Navigation And Product Polish",
     releaseDate: "2026-06-03",
-    summary: "RecordApp pasa a una estructura de producto mas clara, con panel lateral, version visible y novedades por release.",
+    summary: "RecordApp pasa a una estructura de producto más clara, con panel lateral, versión visible y novedades por release.",
     highlights: [
       "Nuevo panel lateral desplegable para navegar mejor por la app.",
-      "WhatsNew sustituye a la antigua pantalla de ayuda tecnica.",
-      "La version actual de la app queda visible dentro del menu.",
-      "La firma de producto queda integrada en la navegacion."
+      "WhatsNew sustituye a la antigua pantalla de ayuda técnica.",
+      "La versión actual de la app queda visible dentro del menú.",
+      "La firma de producto queda integrada en la navegación."
     ]
   },
   {
@@ -40,7 +40,7 @@ export const appReleaseNotes: AppReleaseNote[] = [
     releaseDate: "2026-06-02",
     summary: "La app ya permite organizar compras compartidas por espacios y mejora la identidad visual del usuario.",
     highlights: [
-      "Se anaden espacios compartidos con codigo de acceso.",
+      "Se añaden espacios compartidos con código de acceso.",
       "Las listas pueden nacer directamente dentro de un espacio.",
       "Se puede eliminar un espacio cuando el owner lo necesite.",
       "La cabecera de la app muestra avatar o iniciales del usuario."
@@ -50,10 +50,10 @@ export const appReleaseNotes: AppReleaseNote[] = [
     version: "1.4.0",
     title: "Shared Lists",
     releaseDate: "2026-05-30",
-    summary: "RecordApp incorpora listas compartidas y sincronizacion entre miembros.",
+    summary: "RecordApp incorpora listas compartidas y sincronización entre miembros.",
     highlights: [
-      "Invitaciones por codigo para compartir listas.",
-      "Sincronizacion de listas compartidas entre usuarios.",
+      "Invitaciones por código para compartir listas.",
+      "Sincronización de listas compartidas entre usuarios.",
       "Mejoras de permisos para owner y miembros.",
       "Ajustes de rendimiento en interacciones de compra."
     ]
@@ -62,11 +62,11 @@ export const appReleaseNotes: AppReleaseNote[] = [
     version: "1.3.0",
     title: "Mindful Redesign",
     releaseDate: "2026-05-29",
-    summary: "Rediseno visual de landing, autenticacion y dashboard con un lenguaje mas cuidado.",
+    summary: "Rediseño visual de landing, autenticación y dashboard con un lenguaje más cuidado.",
     highlights: [
       "Nueva experiencia visual de bienvenida y acceso.",
-      "Fondos, tipografia y estilo de producto mas consistentes.",
-      "Mejor integracion de la PWA y del acceso rapido a la app."
+      "Fondos, tipografía y estilo de producto más consistentes.",
+      "Mejor integración de la PWA y del acceso rápido a la app."
     ]
   },
   {
@@ -75,8 +75,8 @@ export const appReleaseNotes: AppReleaseNote[] = [
     releaseDate: "2026-05-27",
     summary: "La app mejora velocidad, historial y recomendaciones iniciales.",
     highlights: [
-      "Interacciones mas rapidas al crear listas y anadir productos.",
-      "Sugerencias y analisis iniciales a partir del historial.",
+      "Interacciones más rápidas al crear listas y añadir productos.",
+      "Sugerencias y análisis iniciales a partir del historial.",
       "Base estable para evolucionar desde MVP a producto."
     ]
   },
@@ -86,9 +86,9 @@ export const appReleaseNotes: AppReleaseNote[] = [
     releaseDate: "2026-05-25",
     summary: "Primer MVP funcional de RecordApp.",
     highlights: [
-      "Autenticacion con email y Google.",
-      "Creacion y gestion de listas de compra.",
-      "Persistencia en Supabase y preparacion PWA."
+      "Autenticación con email y Google.",
+      "Creación y gestión de listas de compra.",
+      "Persistencia en Supabase y preparación PWA."
     ]
   }
 ];

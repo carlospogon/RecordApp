@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   const shareCode = typeof body.shareCode === "string" ? body.shareCode.trim().toUpperCase() : "";
 
   if (!shareCode) {
-    return NextResponse.json({ error: "Introduce un codigo valido." }, { status: 400 });
+    return NextResponse.json({ error: "Introduce un código válido." }, { status: 400 });
   }
 
   const supabase = await createSupabaseServerClient();
@@ -31,11 +31,11 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (inviteError || !invite?.list_id) {
-    return NextResponse.json({ error: "No hemos encontrado ninguna lista con ese codigo." }, { status: 404 });
+    return NextResponse.json({ error: "No hemos encontrado ninguna lista con ese código." }, { status: 404 });
   }
 
   if (invite.expires_at && new Date(invite.expires_at).getTime() < Date.now()) {
-    return NextResponse.json({ error: "Este codigo ha caducado." }, { status: 410 });
+    return NextResponse.json({ error: "Este código ha caducado." }, { status: 410 });
   }
 
   const { data: list, error: listError } = await admin

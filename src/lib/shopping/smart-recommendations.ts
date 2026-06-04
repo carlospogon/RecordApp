@@ -26,22 +26,22 @@ const complementaryRules: ComplementaryRule[] = [
   {
     requires: ["queso", "huevos"],
     suggests: { productName: "Pan", quantity: "1", unit: "barra" },
-    title: "Combinacion detectada",
-    body: "Has anadido queso y huevos. Tener pan a mano te puede cerrar desayunos, tostadas o cenas rapidas.",
+    title: "Combinación detectada",
+    body: "Has añadido queso y huevos. Tener pan a mano te puede cerrar desayunos, tostadas o cenas rápidas.",
     badge: "Complementario"
   },
   {
     requires: ["tomate", "mozzarella"],
     suggests: { productName: "Albahaca", quantity: "1", unit: "manojo" },
     title: "Toque final",
-    body: "Tomate y mozzarella suelen encajar mejor si tambien tienes albahaca fresca para rematar la mezcla.",
+    body: "Tomate y mozzarella suelen encajar mejor si también tienes albahaca fresca para rematar la mezcla.",
     badge: "Complementario"
   },
   {
     requires: ["pasta", "tomate"],
     suggests: { productName: "Queso rallado", quantity: "1", unit: "bolsa" },
-    title: "Cierre rapido",
-    body: "Si hoy entra pasta con tomate, el queso rallado suele ser el complemento que mas se echa en falta despues.",
+    title: "Cierre rápido",
+    body: "Si hoy entra pasta con tomate, el queso rallado suele ser el complemento que más se echa en falta después.",
     badge: "Complementario"
   }
 ];
@@ -63,8 +63,8 @@ const healthySuggestionsByCategory: Partial<
     productName: "Agua de coco",
     quantity: "1",
     unit: "botella",
-    title: "Hidratacion inteligente",
-    body: "El agua de coco aporta electrolitos de forma natural y puede venir bien si quieres reforzar hidratacion sin complicarte.",
+    title: "Hidratación inteligente",
+    body: "El agua de coco aporta electrolitos de forma natural y puede venir bien si quieres reforzar hidratación sin complicarte.",
     badge: "Dato saludable"
   },
   panaderia: {
@@ -72,7 +72,7 @@ const healthySuggestionsByCategory: Partial<
     quantity: "2",
     unit: "unidades",
     title: "Idea saludable",
-    body: "Si compras pan con frecuencia, el aguacate puede darte una opcion rapida y mas saciante para desayunos o cenas ligeras.",
+    body: "Si compras pan con frecuencia, el aguacate puede darte una opción rápida y más saciante para desayunos o cenas ligeras.",
     badge: "Dato saludable"
   },
   huevos: {
@@ -80,7 +80,7 @@ const healthySuggestionsByCategory: Partial<
     quantity: "1",
     unit: "bolsa",
     title: "Refuerzo verde",
-    body: "Los huevos combinan muy bien con espinacas y te ayudan a montar comidas rapidas con mas fibra y micronutrientes.",
+    body: "Los huevos combinan muy bien con espinacas y te ayudan a montar comidas rápidas con más fibra y micronutrientes.",
     badge: "Dato saludable"
   },
   fruta: {
@@ -88,7 +88,7 @@ const healthySuggestionsByCategory: Partial<
     quantity: "4",
     unit: "uds",
     title: "Combina mejor",
-    body: "La fruta con yogur natural te deja desayunos o meriendas mas completos y faciles de repetir durante la semana.",
+    body: "La fruta con yogur natural te deja desayunos o meriendas más completos y fáciles de repetir durante la semana.",
     badge: "Dato saludable"
   }
 };
@@ -111,7 +111,7 @@ export function buildSmartSuggestion(
       return {
         title: rule.title,
         body: rule.body,
-        ctaLabel: "Anadir recomendacion",
+        ctaLabel: "Añadir recomendación",
         productName: rule.suggests.productName,
         quantity: rule.suggests.quantity,
         unit: rule.suggests.unit,
@@ -138,7 +138,7 @@ export function buildSmartSuggestion(
     return {
       title: healthySuggestion.title,
       body: healthySuggestion.body,
-      ctaLabel: "Lo anadimos?",
+      ctaLabel: "¿Lo añadimos?",
       productName: healthySuggestion.productName,
       quantity: healthySuggestion.quantity,
       unit: healthySuggestion.unit,

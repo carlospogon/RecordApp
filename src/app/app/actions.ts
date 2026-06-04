@@ -73,7 +73,7 @@ async function getUserOrThrow() {
   const user = await requireAuthenticatedUser();
 
   if (!user) {
-    throw new Error("Debes iniciar sesion para usar RecordApp.");
+    throw new Error("Debes iniciar sesión para usar RecordApp.");
   }
 
   return user;
@@ -194,7 +194,7 @@ export async function createItemAction(_: ActionState, formData: FormData): Prom
   const normalizedName = normalizeProductName(parsed.data.name);
 
   if (!normalizedName) {
-    return { error: "El producto no es valido." };
+    return { error: "El producto no es válido." };
   }
 
   const duplicateNotice = await findDuplicateNotice(parsed.data.name);
@@ -240,7 +240,7 @@ export async function createItemAction(_: ActionState, formData: FormData): Prom
 
       revalidatePath("/app");
       return {
-        success: "Producto anadido.",
+        success: "Producto añadido.",
         duplicateMessage: duplicateNotice?.message,
         duplicateNotice,
         createdItemId: data?.id
@@ -283,7 +283,7 @@ export async function createItemAction(_: ActionState, formData: FormData): Prom
 
         revalidatePath("/app");
         return {
-          success: "Producto anadido.",
+          success: "Producto añadido.",
           duplicateMessage: duplicateNotice?.message,
           duplicateNotice,
           createdItemId: data?.id
@@ -330,7 +330,7 @@ export async function createItemAction(_: ActionState, formData: FormData): Prom
 
   revalidatePath("/app");
   return {
-    success: "Producto anadido.",
+    success: "Producto añadido.",
     duplicateMessage: duplicateNotice?.message,
     duplicateNotice,
     createdItemId: data?.id
@@ -469,14 +469,14 @@ export async function updateCatalogProductAction(_: ActionState, formData: FormD
   });
 
   if (!parsed.success) {
-    return { error: "No se pudo actualizar el producto del catalogo." };
+    return { error: "No se pudo actualizar el producto del catálogo." };
   }
 
   await getUserOrThrow();
   const normalizedName = normalizeProductName(parsed.data.name);
 
   if (!normalizedName) {
-    return { error: "El nombre del producto no es valido." };
+    return { error: "El nombre del producto no es válido." };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -496,5 +496,5 @@ export async function updateCatalogProductAction(_: ActionState, formData: FormD
   }
 
   revalidatePath("/app");
-  return { success: "Producto del catalogo actualizado." };
+  return { success: "Producto del catálogo actualizado." };
 }

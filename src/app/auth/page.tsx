@@ -24,7 +24,7 @@ export default async function AuthPage({
 
   return (
     <main className={`relative min-h-screen overflow-hidden bg-[#faf9f6] text-[#1a1c1a] ${bodyFont.className}`}>
-      <div className="absolute inset-0">
+      <div className="pointer-events-none absolute inset-0">
         <Image
           src="/auth-mindful-background.jpg"
           alt="Despensa ordenada y luminosa"
@@ -67,13 +67,13 @@ export default async function AuthPage({
                   Entra en RecordApp
                 </h1>
                 <p className="mx-auto mt-3 max-w-[34rem] text-base leading-7 text-[#5e665f] sm:text-lg">
-                  Tu despensa organizada, tus listas siempre a mano y recordatorios pensados para una compra mas tranquila.
+                  Tu despensa organizada, tus listas siempre a mano y recordatorios pensados para una compra más tranquila.
                 </p>
               </div>
 
               {showGoogleError ? (
                 <div className="mb-4 rounded-[22px] border border-[#e7c8be] bg-[rgba(255,244,240,0.92)] p-4 text-sm text-[#a45f4a]">
-                  Google Auth no termino bien. Revisa que el proveedor este activado en Supabase y que el redirect URL apunte a
+                  Google Auth no terminó bien. Revisa que el proveedor esté activado en Supabase y que el redirect URL apunte a
                   `/auth/callback`.
                 </div>
               ) : null}

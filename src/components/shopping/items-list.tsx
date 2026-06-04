@@ -8,9 +8,9 @@ const initialActionState: ActionState = {};
 const sectionLabels: Record<string, string> = {
   fruta: "Fruta",
   verdura: "Verdura",
-  lacteos: "Lacteos",
+  lacteos: "Lácteos",
   huevos: "Huevos",
-  panaderia: "Panaderia",
+  panaderia: "Panadería",
   carne: "Carne",
   pescado: "Pescado",
   despensa: "Despensa",
@@ -376,9 +376,9 @@ export function ItemsList({
   if (items.length === 0) {
     return (
       <section className="rounded-[28px] border border-[var(--border)] bg-[var(--surface-soft)] p-6">
-        <p className="text-lg font-semibold text-[var(--text)]">Todavia no hay productos en esta lista.</p>
+        <p className="text-lg font-semibold text-[var(--text)]">Todavía no hay productos en esta lista.</p>
         <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-          Empieza anadiendo un producto para activar memoria historica, frecuencia de compra y recordatorios.
+          Empieza añadiendo un producto para activar memoria histórica, frecuencia de compra y recordatorios.
         </p>
       </section>
     );
@@ -447,7 +447,7 @@ export function ItemsList({
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-[var(--text)]">Vista rapida para supermercado</p>
+                <p className="text-sm font-semibold text-[var(--text)]">Vista rápida para supermercado</p>
                 <p className="mt-1 text-sm text-[var(--muted)]">Toca una fila para marcarla al instante.</p>
               </div>
               <button
@@ -494,7 +494,7 @@ export function ItemsList({
             <section key={section} className="grid gap-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">Seccion</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">Sección</p>
                   <h3 className="mt-1 text-lg font-semibold text-[var(--text)]">{sectionLabels[section] ?? "Otros"}</h3>
                 </div>
                 <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[var(--muted)]">

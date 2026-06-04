@@ -105,7 +105,7 @@ export function CreateListForm({
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Nueva lista</p>
         <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">Prepara una compra nueva</h3>
         <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-          Crea una lista con fecha para separar compras semanales, reposiciones rapidas o visitas al mercado.
+          Crea una lista con fecha para separar compras semanales, reposiciones rápidas o visitas al mercado.
         </p>
       </div>
 
@@ -139,8 +139,8 @@ export function CreateListForm({
             </select>
             <p className="text-sm leading-6 text-[var(--muted)]">
               {selectedSpace
-                ? "Las listas creadas en este espacio se compartiran automaticamente con sus miembros."
-                : "Si eliges un espacio, la lista nacera ya compartida con ese grupo."}
+                ? "Las listas creadas en este espacio se compartirán automáticamente con sus miembros."
+                : "Si eliges un espacio, la lista nacerá ya compartida con ese grupo."}
             </p>
           </div>
         ) : null}
@@ -154,7 +154,7 @@ export function CreateListForm({
         />
         {showReminderDate ? (
           <div className="grid gap-2 rounded-[18px] border border-[var(--border)] bg-white px-4 py-4">
-            <p className="text-sm font-semibold text-[var(--text)]">Para cuando quieres que te recuerde esta lista?</p>
+            <p className="text-sm font-semibold text-[var(--text)]">¿Para cuándo quieres que te recuerde esta lista?</p>
             <input
               type="date"
               name="reminderDate"

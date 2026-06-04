@@ -11,7 +11,7 @@ export default function DocsPage() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">WhatsNew</p>
               <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[var(--text)] sm:text-4xl">Novedades de RecordApp</h1>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-[var(--muted)]">
-                Aqui te contamos, de forma sencilla y amigable, las mejoras que van llegando a RecordApp en cada version.
+                Aquí te contamos, de forma sencilla y amigable, las mejoras que van llegando a RecordApp en cada versión.
               </p>
             </div>
             <div className="rounded-[22px] border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-3 text-right">
@@ -58,7 +58,7 @@ export default function DocsPage() {
           <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-[rgba(255,255,255,0.72)] px-5 py-4">
             <div>
               <p className="text-sm font-semibold text-[var(--text)]">Volver a la app</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">Sigue usando RecordApp con la version mas reciente ya desplegada.</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">Sigue usando RecordApp con la versión más reciente ya desplegada.</p>
             </div>
             <Link
               href="/app"

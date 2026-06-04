@@ -61,7 +61,7 @@ export function AuthForms({ initialMode = "signin" }: { initialMode?: "signin" |
             isSignIn ? "bg-[#4a6150] text-white shadow-[0_10px_20px_rgba(74,97,80,0.18)]" : "text-[#7c7567] hover:text-[#4a6150]"
           }`}
         >
-          Iniciar sesion
+          Iniciar sesión
         </button>
         <button
           type="button"
@@ -90,7 +90,7 @@ export function AuthForms({ initialMode = "signin" }: { initialMode?: "signin" |
 
         <div className="space-y-2">
           <label htmlFor="password" className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6d766e]">
-            Contrasena
+            Contraseña
           </label>
           <input
             id="password"

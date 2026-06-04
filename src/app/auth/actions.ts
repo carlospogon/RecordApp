@@ -22,7 +22,7 @@ export async function signInAction(_: AuthActionState, formData: FormData): Prom
   });
 
   if (!parsed.success) {
-    return { error: "Introduce un email valido y una contrasena de al menos 6 caracteres." };
+    return { error: "Introduce un email válido y una contraseña de al menos 6 caracteres." };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -42,7 +42,7 @@ export async function signUpAction(_: AuthActionState, formData: FormData): Prom
   });
 
   if (!parsed.success) {
-    return { error: "Introduce un email valido y una contrasena de al menos 6 caracteres." };
+    return { error: "Introduce un email válido y una contraseña de al menos 6 caracteres." };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -53,7 +53,7 @@ export async function signUpAction(_: AuthActionState, formData: FormData): Prom
   }
 
   return {
-    success: "Cuenta creada. Si tu proyecto requiere confirmacion por email, revisa tu bandeja antes de iniciar sesion."
+    success: "Cuenta creada. Si tu proyecto requiere confirmación por email, revisa tu bandeja antes de iniciar sesión."
   };
 }
 
