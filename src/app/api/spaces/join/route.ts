@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   const shareCode = typeof body.shareCode === "string" ? body.shareCode.trim().toUpperCase() : "";
 
   if (!shareCode) {
-    return NextResponse.json({ error: "Introduce un codigo valido." }, { status: 400 });
+    return NextResponse.json({ error: "Introduce un código válido." }, { status: 400 });
   }
 
   const supabase = await createSupabaseServerClient();
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (spaceError || !space?.id) {
-    return NextResponse.json({ error: "No hemos encontrado ningun espacio con ese codigo." }, { status: 404 });
+    return NextResponse.json({ error: "No hemos encontrado ningún espacio con ese código." }, { status: 404 });
   }
 
   const { error: membershipError } = await admin.from("shopping_space_members").upsert(

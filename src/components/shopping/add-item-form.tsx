@@ -66,7 +66,7 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
     setSuccess(null);
 
     if (!listReady) {
-      setError("La lista se esta preparando todavia. Espera un instante.");
+      setError("La lista se está preparando todavía. Espera un instante.");
       return;
     }
 
@@ -118,7 +118,7 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
 
         onItemCreated?.(payload.item);
         setCreatedItemId(payload.item.id);
-        setSuccess("Producto anadido.");
+        setSuccess("Producto añadido.");
 
         fetch(`/api/items/duplicate?name=${encodeURIComponent(payload.item.name)}`)
           .then((duplicateResponse) => (duplicateResponse.ok ? duplicateResponse.json() : null))
@@ -170,7 +170,7 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
     <div className="grid gap-4 rounded-[26px] border border-[var(--border)] bg-[rgba(250,249,246,0.9)] p-5">
       <form onSubmit={handleSubmit} className="grid gap-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Anadir producto</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Añadir producto</p>
           <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">Rellena la lista activa</h3>
         </div>
 
@@ -189,7 +189,7 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
               {selectedProduct ? (
                 <>
                   <span className="rounded-full bg-[var(--accent-soft)] px-3 py-1 text-xs font-semibold text-[var(--accent-strong)]">
-                    Producto del catalogo
+                    Producto del catálogo
                   </span>
                   {inferredSection ? (
                     <span className="rounded-full bg-[#eef3ef] px-3 py-1 text-xs font-semibold capitalize text-[var(--muted)]">
@@ -204,7 +204,7 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
                 </>
               ) : name.trim() ? (
                 <span className="rounded-full bg-[#fff7dd] px-3 py-1 text-xs font-semibold text-[#7c6320]">
-                  Producto nuevo: se guardara en tu catalogo
+                  Producto nuevo: se guardará en tu catálogo
                 </span>
               ) : (
                 <span className="rounded-full bg-[#eef3ef] px-3 py-1 text-xs font-semibold text-[var(--muted)]">
@@ -213,7 +213,7 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
               )}
               {inferredSection ? (
                 <span className="rounded-full bg-[#eef3ef] px-3 py-1 text-xs font-semibold capitalize text-[var(--muted)]">
-                  Categoria automatica: {inferredSection}
+                  Categoría automática: {inferredSection}
                 </span>
               ) : null}
             </div>
@@ -260,7 +260,7 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
               type="text"
               value={notes}
               onChange={(event) => setNotes(event.currentTarget.value)}
-              placeholder="Nota rapida: marca, sin gluten, pasillo..."
+              placeholder="Nota rápida: marca, sin gluten, pasillo..."
               maxLength={240}
               className="rounded-[18px] border border-[var(--border)] bg-white px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
             />
@@ -275,14 +275,14 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
           disabled={pending || !listReady}
           className="rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {!listReady ? "Preparando lista..." : pending ? "Anadiendo..." : "Guardar producto"}
+          {!listReady ? "Preparando lista..." : pending ? "Añadiendo..." : "Guardar producto"}
         </button>
       </form>
 
       {duplicateNotice ? (
         <div className="rounded-[22px] border border-[#f2d57e] bg-[#fff7dd] px-4 py-4 text-sm leading-6 text-[#7c6320]">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-semibold text-[#5a4714]">Ya lo habias comprado antes</p>
+            <p className="font-semibold text-[#5a4714]">Ya lo habías comprado antes</p>
             <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#7c6320]">
               {duplicateNotice.appearances} veces
             </span>
@@ -290,7 +290,7 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
           <p className="mt-2">{duplicateNotice.message}</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             <div className="rounded-2xl bg-white/80 px-3 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7440]">Ultima aparicion</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7440]">Última aparición</p>
               <p className="mt-1 font-medium text-[#5a4714]">{formatDate(duplicateNotice.lastSeenAt)}</p>
             </div>
             <div className="rounded-2xl bg-white/80 px-3 py-3">
@@ -311,7 +311,7 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
                 disabled={pending}
                 className="rounded-full border border-[#e0a7a7] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#b44d4d] transition hover:bg-[#fff4f4] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Eliminar producto recien anadido
+                Eliminar producto recién añadido
               </button>
             </div>
           ) : null}

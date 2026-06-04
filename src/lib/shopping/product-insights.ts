@@ -113,7 +113,7 @@ export function buildReminders(insights: ProductInsight[], now = new Date()) {
     .filter((insight) => new Date(insight.estimatedNextPurchaseAt as string).getTime() <= now.getTime())
     .map((insight) => ({
       product: insight.displayName,
-      message: `Hace alrededor de ${insight.averageIntervalDays} dias que sueles volver a comprar ${insight.displayName}. Revisa si necesitas mas.`,
+      message: `Hace alrededor de ${insight.averageIntervalDays} días que sueles volver a comprar ${insight.displayName}. Revisa si necesitas más.`,
       estimatedNextPurchaseAt: insight.estimatedNextPurchaseAt as string
     }));
 }

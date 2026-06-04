@@ -50,7 +50,7 @@ export async function POST(_: Request, context: RouteContext) {
     .single();
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message ?? "No se pudo generar el codigo." }, { status: 500 });
+    return NextResponse.json({ error: error?.message ?? "No se pudo generar el código." }, { status: 500 });
   }
 
   await supabase.from("shopping_lists").update({ shared: true }).eq("id", id);

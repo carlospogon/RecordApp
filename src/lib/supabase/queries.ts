@@ -476,7 +476,7 @@ export async function findDuplicateNotice(productName: string): Promise<Shopping
     lastStatus: lastItem?.status,
     appearances: items.length,
     message:
-      "Ojo, este producto ya aparecio en una lista anterior. Revisa si todavia tienes suficiente antes de volver a comprarlo."
+      "Ojo, este producto ya apareció en una lista anterior. Revisa si todavía tienes suficiente antes de volver a comprarlo."
   };
 }
 

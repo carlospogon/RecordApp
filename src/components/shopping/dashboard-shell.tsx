@@ -42,7 +42,7 @@ const navigationItems = [
   { id: "lista", label: "Lista", description: "Compra activa y espacios" },
   { id: "historial", label: "Historial", description: "Listas anteriores" },
   { id: "sugerencias", label: "Sugerencias", description: "Recordatorios y frecuencia" },
-  { id: "analisis", label: "Analisis", description: "Lectura de patrones" },
+  { id: "analisis", label: "Análisis", description: "Lectura de patrones" },
   { id: "resumen", label: "Resumen", description: "Vista general" }
 ] as const;
 
@@ -109,7 +109,7 @@ function FlowCard({
         <div className="mb-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Paso 1</p>
           <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--text)]">Crea tu primera lista</h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Empieza por una lista nueva. En cuanto la crees, pasaras al Paso 2.</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Empieza por una lista nueva. En cuanto la crees, pasarás al Paso 2.</p>
         </div>
         <CreateListForm
           spaces={spaces}
@@ -120,7 +120,7 @@ function FlowCard({
         />
         <div className="mt-4 rounded-[26px] border border-[var(--border)] bg-[rgba(250,249,246,0.88)] p-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Unirte a una lista</p>
-          <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">Pega un codigo compartido</h3>
+          <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">Pega un código compartido</h3>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
             <input
               type="text"
@@ -178,7 +178,7 @@ function FlowCard({
           </p>
           {currentList.spaceName ? (
             <p className="mt-3 inline-flex rounded-full bg-[var(--accent-soft)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--accent-strong)]">
-              Espacio Â· {currentList.spaceName}
+              Espacio · {currentList.spaceName}
             </p>
           ) : null}
         </div>
@@ -198,12 +198,12 @@ function FlowCard({
                     const payload = (await response.json()) as { invite?: ShoppingListInvite; error?: string };
 
                     if (!response.ok || !payload.invite) {
-                      throw new Error(payload.error || "No se pudo generar el codigo.");
+                      throw new Error(payload.error || "No se pudo generar el código.");
                     }
 
                     setShareInvite(payload.invite);
                   } catch (error) {
-                    setShareError(error instanceof Error ? error.message : "No se pudo generar el codigo.");
+                    setShareError(error instanceof Error ? error.message : "No se pudo generar el código.");
                   }
                 });
               }}
@@ -237,7 +237,7 @@ function FlowCard({
 
       {shareInvite ? (
         <div className="mt-4 rounded-[22px] border border-[var(--border)] bg-white p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Codigo compartido</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Código compartido</p>
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <code className="rounded-full bg-[var(--surface-soft)] px-4 py-2 text-sm font-semibold tracking-[0.2em] text-[var(--text)]">
               {shareInvite.shareCode}
@@ -300,7 +300,7 @@ function SpacesCard({
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Espacios</p>
           <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--text)]">Comparte por grupos estables</h2>
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            Crea un espacio para una familia, piso o equipo. Las listas que nazcan ahi se compartiran con sus miembros.
+            Crea un espacio para una familia, piso o equipo. Las listas que nazcan ahí se compartirán con sus miembros.
           </p>
         </div>
 
@@ -336,7 +336,7 @@ function SpacesCard({
                     <button type="button" onClick={() => onSelectSpace(active ? null : space.id)} className="min-w-0 flex-1 text-left">
                       <p className="text-base font-semibold text-[var(--text)]">{space.name}</p>
                       <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
-                        Codigo Â· {space.shareCode}
+                        Código · {space.shareCode}
                       </p>
                     </button>
                     <div className="flex items-center gap-2">
@@ -391,7 +391,7 @@ function SpacesCard({
             })
           ) : (
             <div className="rounded-[22px] border border-dashed border-[var(--border)] bg-[var(--surface-soft)] p-4 text-sm leading-6 text-[var(--muted)]">
-              Aun no tienes espacios. Crea uno para agrupar listas compartidas de forma permanente.
+              Aún no tienes espacios. Crea uno para agrupar listas compartidas de forma permanente.
             </div>
           )}
         </div>
@@ -421,7 +421,7 @@ function SpacesCard({
                     onSpaceCreated(payload.space);
                     onSelectSpace(payload.space.id);
                     setSpaceName("");
-                    setSuccess(`Espacio creado. Codigo: ${payload.space.shareCode}`);
+                    setSuccess(`Espacio creado. Código: ${payload.space.shareCode}`);
                     setShowCreateForm(false);
                   } catch (submitError) {
                     setError(submitError instanceof Error ? submitError.message : "No se pudo crear el espacio.");
@@ -480,7 +480,7 @@ function SpacesCard({
             }}
             className="rounded-[22px] border border-[var(--border)] bg-white p-4"
           >
-            <p className="text-sm font-semibold text-[var(--text)]">Unirme con codigo</p>
+            <p className="text-sm font-semibold text-[var(--text)]">Unirme con código</p>
             <input
               type="text"
               value={joinCode}
@@ -544,7 +544,7 @@ function SummaryPanel({
         <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Frecuencia</p>
-            <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">Lo que mas repites</h3>
+            <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">Lo que más repites</h3>
             <div className="mt-4 grid gap-3">
               {topProducts.length > 0 ? (
                 topProducts.map((product) => (
@@ -565,7 +565,7 @@ function SummaryPanel({
                 ))
               ) : (
                 <div className="rounded-[22px] bg-[var(--surface-soft)] p-4 text-sm leading-6 text-[var(--muted)]">
-                  Todavia no hay suficientes productos repetidos para dibujar un patron claro.
+                  Todavía no hay suficientes productos repetidos para dibujar un patrón claro.
                 </div>
               )}
             </div>
@@ -579,7 +579,7 @@ function SummaryPanel({
               <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
                 {reminders.length > 0
                   ? "Ya hay productos con reposicion estimada segun tu historial."
-                  : "Aun no hay recordatorios cerrados, pero Sugerencias ya puede anticipar lo que estas construyendo ahora."}
+                  : "Aún no hay recordatorios cerrados, pero Sugerencias ya puede anticipar lo que estás construyendo ahora."}
               </p>
             </div>
           </div>
@@ -644,10 +644,10 @@ function AnalysisPanel({
   return (
     <section className="grid gap-4">
       <section className="rounded-[28px] border border-[var(--border)] bg-white p-5 shadow-[0_14px_36px_rgba(10,24,19,0.08)]">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Analisis</p>
-        <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">Tus 3 ultimas listas cerradas</h3>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Análisis</p>
+        <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">Tus 3 últimas listas cerradas</h3>
         <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-          RecordApp evalua la distribucion de vegetales, proteinas y carbohidratos para detectar desequilibrios en tu compra reciente.
+          RecordApp evalúa la distribución de vegetales, proteínas y carbohidratos para detectar desequilibrios en tu compra reciente.
         </p>
 
         <div className="mt-5 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
@@ -1284,7 +1284,7 @@ export function DashboardShell({
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Panel</p>
             <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--text)]">RecordApp</h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Analisis, resumen y novedades en una sola vista.</p>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Análisis, resumen y novedades en una sola vista.</p>
           </div>
           <button
             type="button"
@@ -1322,7 +1322,7 @@ export function DashboardShell({
               className="rounded-[20px] border border-[rgba(112,150,130,0.14)] bg-[rgba(255,255,255,0.72)] px-4 py-3 text-left transition hover:bg-[var(--surface-soft)]"
             >
               <p className="text-sm font-semibold uppercase tracking-[0.08em] text-[var(--text)]">WhatsNew</p>
-              <p className="mt-1 text-sm leading-6 text-[var(--muted)]">Novedades por version y cambios recientes del producto.</p>
+              <p className="mt-1 text-sm leading-6 text-[var(--muted)]">Novedades por versión y cambios recientes del producto.</p>
             </Link>
           </div>
         </div>

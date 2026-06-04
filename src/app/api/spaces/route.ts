@@ -57,7 +57,7 @@ export async function POST(request: Request) {
   }
 
   if (!createdSpace) {
-    return NextResponse.json({ error: "No se pudo generar un codigo unico para el espacio." }, { status: 500 });
+    return NextResponse.json({ error: "No se pudo generar un código único para el espacio." }, { status: 500 });
   }
 
   return NextResponse.json({

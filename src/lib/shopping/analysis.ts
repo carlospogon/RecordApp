@@ -10,9 +10,9 @@ import {
 
 const bucketMeta: Record<AnalysisBucketKey, { label: string; color: string }> = {
   vegetales: { label: "Vegetales", color: "#3aa86b" },
-  proteinas: { label: "Proteinas", color: "#ff8a65" },
+  proteinas: { label: "Proteínas", color: "#ff8a65" },
   carbohidratos: { label: "Carbohidratos", color: "#f2c94c" },
-  lacteos: { label: "Lacteos", color: "#7bb6ff" },
+  lacteos: { label: "Lácteos", color: "#7bb6ff" },
   otros: { label: "Otros", color: "#c8d3cc" }
 };
 
@@ -109,10 +109,10 @@ export function buildShoppingAnalysis({
   const recommendations: AnalysisRecommendation[] = [];
 
   if (vegetalesShare < 0.25) {
-    findings.push("En tus 3 ultimas listas aparecen pocos vegetales frente al resto de categorias.");
+    findings.push("En tus 3 últimas listas aparecen pocos vegetales frente al resto de categorías.");
     recommendations.push({
       title: "Sube la base vegetal",
-      body: "Te vendria bien reforzar verduras de hoja, tomate o fruta fresca para equilibrar mejor la compra semanal.",
+      body: "Te vendría bien reforzar verduras de hoja, tomate o fruta fresca para equilibrar mejor la compra semanal.",
       productName: "Espinacas",
       quantity: "1",
       unit: "bolsa"
@@ -120,10 +120,10 @@ export function buildShoppingAnalysis({
   }
 
   if (proteinasShare < 0.2) {
-    findings.push("La proteina aparece por debajo de lo deseable para sostener comidas mas completas.");
+    findings.push("La proteína aparece por debajo de lo deseable para sostener comidas más completas.");
     recommendations.push({
-      title: "Refuerza la proteina",
-      body: "Anade una fuente clara de proteina en la siguiente lista para no apoyarte solo en pan, pasta o extras.",
+      title: "Refuerza la proteína",
+      body: "Añade una fuente clara de proteína en la siguiente lista para no apoyarte solo en pan, pasta o extras.",
       productName: "Pechuga de pollo",
       quantity: "2",
       unit: "filetes"
@@ -131,10 +131,10 @@ export function buildShoppingAnalysis({
   }
 
   if (carbsShare > 0.45 && vegetalesShare < 0.25) {
-    findings.push("Predominan carbohidratos y despensa seca, pero falta compensarlos con mas vegetal fresco.");
+    findings.push("Predominan carbohidratos y despensa seca, pero falta compensarlos con más vegetal fresco.");
     recommendations.push({
       title: "Compensa los carbohidratos",
-      body: "Si la base de la compra es pan, pasta o arroz, intenta equilibrarla con verdura y algo de proteina.",
+      body: "Si la base de la compra es pan, pasta o arroz, intenta equilibrarla con verdura y algo de proteína.",
       productName: "Brocoli",
       quantity: "1",
       unit: "unidad"
@@ -142,10 +142,10 @@ export function buildShoppingAnalysis({
   }
 
   if (varietyCount < 3) {
-    findings.push("Hay poca variedad entre categorias, lo que suele traducirse en una compra menos equilibrada.");
+    findings.push("Hay poca variedad entre categorías, lo que suele traducirse en una compra menos equilibrada.");
     recommendations.push({
       title: "Aumenta la variedad",
-      body: "Introduce al menos una categoria que ahora no este apareciendo para mejorar el balance general.",
+      body: "Introduce al menos una categoría que ahora no esté apareciendo para mejorar el balance general.",
       productName: "Yogur natural",
       quantity: "4",
       unit: "uds"
@@ -153,10 +153,10 @@ export function buildShoppingAnalysis({
   }
 
   if (findings.length === 0) {
-    findings.push("Tus 3 ultimas listas muestran un reparto bastante equilibrado entre vegetales, proteinas y base de despensa.");
+    findings.push("Tus 3 últimas listas muestran un reparto bastante equilibrado entre vegetales, proteínas y base de despensa.");
     recommendations.push({
       title: "Balance correcto",
-      body: "Mantienes una mezcla razonable. La mejora ahora vendria por variar un poco mas los productos frescos.",
+      body: "Mantienes una mezcla razonable. La mejora ahora vendría por variar un poco más los productos frescos.",
       productName: "Frutos rojos",
       quantity: "1",
       unit: "bandeja"

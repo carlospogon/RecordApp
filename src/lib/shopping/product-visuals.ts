@@ -29,12 +29,12 @@ const categoryVisuals: Record<ProductCategory, ProductVisual> = {
   },
   panaderia: {
     src: "/product-visuals/panaderia.svg",
-    alt: "Ilustracion de panaderia",
+    alt: "Ilustración de panadería",
     accentClass: "from-[#ffe9d4] to-[#ffd1a1]"
   },
   carne: {
     src: "/product-visuals/proteina.svg",
-    alt: "Ilustracion de proteina fresca",
+    alt: "Ilustración de proteína fresca",
     accentClass: "from-[#ffe0e0] to-[#ffc6c6]"
   },
   pescado: {
