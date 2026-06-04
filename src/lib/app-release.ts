@@ -10,6 +10,20 @@ export const developerSignature = "A CPG Dynamics Product";
 
 export const appReleaseNotes: AppReleaseNote[] = [
   {
+    version: "1.8.0",
+    title: "Collaborative Shopping Signals",
+    releaseDate: "2026-06-04",
+    summary:
+      "¡Hola! En esta versión hemos dado un paso importante para que comprar en compañía sea bastante más claro. Ahora puedes repartir productos entre miembros, ver actividad reciente de la lista, detectar antes los duplicados dentro de la compra activa y activar avisos push para enterarte cuando alguien te asigna algo, marca un producto como comprado o cierra una lista compartida. Desde el equipo de RecordApp esperamos que estas mejoras te ayuden a coordinarte sin fricción.",
+    highlights: [
+      "Ahora cada producto puede tener responsable. Caso de uso: si una persona va por lácteos y otra por limpieza, cada una ve de un vistazo qué le toca llevar.",
+      "La lista muestra actividad reciente real de colaboración. Caso de uso: si vuelves a abrir la app en mitad de la compra, puedes ver quién añadió, actualizó o movió algo hace un momento.",
+      "RecordApp avisa cuando intentas añadir un producto que ya está en la lista activa. Caso de uso: si alguien ya metió queso o leche, lo ves antes de duplicarlo sin darte cuenta.",
+      "También detectamos solapes dentro de la lista para revisarlos con calma. Caso de uso: si el mismo producto aparece dos veces, la app te lo señala para fusionarlo o confirmar que de verdad hace falta repetirlo.",
+      "Las notificaciones push ahora cubren eventos colaborativos importantes. Caso de uso: si te asignan un producto, otro miembro lo marca como comprado o la lista se finaliza, te enteras aunque no tengas la app abierta."
+    ]
+  },
+  {
     version: "1.7.0",
     title: "Smart Shopping Flow",
     releaseDate: "2026-06-04",

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { logShoppingActivity } from "@/lib/shopping/activity-log";
+import { sendPushNotificationToUsers } from "@/lib/push/send-push-notification";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getAccessibleItemForUser } from "@/lib/supabase/shared-access";
@@ -27,7 +29,7 @@ export async function POST(_: Request, context: RouteContext) {
 
   const { data: item, error: readError } = await admin
     .from("shopping_items")
-    .select("id, status")
+    .select("id, name, status")
     .eq("id", id)
     .single();
 
@@ -47,6 +49,38 @@ export async function POST(_: Request, context: RouteContext) {
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
+
+  const actorMetadata = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const actorDisplayName =
+    (typeof actorMetadata.full_name === "string" && actorMetadata.full_name.trim()) ||
+    (typeof actorMetadata.name === "string" && actorMetadata.name.trim()) ||
+    (user.email?.split("@")[0] ?? "Usuario");
+
+  await logShoppingActivity({
+    listId: accessibleItem.listId,
+    actorUserId: user.id,
+    eventType: nextStatus === "bought" ? "item_bought" : "item_reopened",
+    itemId: id,
+    spaceId: accessibleItem.spaceId ?? null,
+    subjectName: item.name
+  });
+
+  if (nextStatus === "bought") {
+    const [{ data: listMembers }, { data: listRow }] = await Promise.all([
+      admin.from("shopping_list_members").select("user_id").eq("list_id", accessibleItem.listId),
+      admin.from("shopping_lists").select("title").eq("id", accessibleItem.listId).maybeSingle()
+    ]);
+
+    const targetUserIds = (listMembers ?? [])
+      .map((member) => member.user_id)
+      .filter((memberUserId) => typeof memberUserId === "string" && memberUserId !== user.id);
+
+    await sendPushNotificationToUsers(targetUserIds, {
+      title: "RecordApp",
+      body: `${actorDisplayName} ha marcado ${item.name} como comprado en ${listRow?.title ?? "la lista compartida"}.`,
+      url: `/app?list=${accessibleItem.listId}&tab=lista`
+    });
   }
 
   return NextResponse.json({ status: nextStatus, checkedAt });

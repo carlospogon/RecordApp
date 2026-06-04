@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 type AccessibleList = {
   id: string;
   ownerId: string;
+  spaceId?: string | null;
 };
 
 export async function getAccessibleListForUser(listId: string, userId: string): Promise<AccessibleList | null> {
@@ -10,7 +11,7 @@ export async function getAccessibleListForUser(listId: string, userId: string): 
 
   const { data: list, error: listError } = await admin
     .from("shopping_lists")
-    .select("id, user_id")
+    .select("id, user_id, space_id")
     .eq("id", listId)
     .maybeSingle();
 
@@ -21,7 +22,8 @@ export async function getAccessibleListForUser(listId: string, userId: string): 
   if (list.user_id === userId) {
     return {
       id: list.id,
-      ownerId: list.user_id
+      ownerId: list.user_id,
+      spaceId: list.space_id ?? null
     };
   }
 
@@ -38,11 +40,15 @@ export async function getAccessibleListForUser(listId: string, userId: string): 
 
   return {
     id: list.id,
-    ownerId: list.user_id
+    ownerId: list.user_id,
+    spaceId: list.space_id ?? null
   };
 }
 
-export async function getAccessibleItemForUser(itemId: string, userId: string): Promise<{ itemId: string; listId: string } | null> {
+export async function getAccessibleItemForUser(
+  itemId: string,
+  userId: string
+): Promise<{ itemId: string; listId: string; spaceId?: string | null } | null> {
   const admin = createSupabaseAdminClient();
 
   const { data: item, error: itemError } = await admin
@@ -63,6 +69,7 @@ export async function getAccessibleItemForUser(itemId: string, userId: string): 
 
   return {
     itemId: item.id,
-    listId: item.list_id
+    listId: item.list_id,
+    spaceId: accessibleList.spaceId ?? null
   };
 }

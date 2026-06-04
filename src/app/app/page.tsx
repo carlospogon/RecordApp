@@ -107,6 +107,7 @@ export default async function AppPage({
 
           <DashboardShell
             currentList={data.currentList}
+            currentListMembers={data.currentListMembers}
             items={data.items}
             suggestionItems={data.suggestionItems}
             scheduledListReminders={data.scheduledListReminders}

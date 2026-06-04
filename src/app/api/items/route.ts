@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logShoppingActivity } from "@/lib/shopping/activity-log";
 import { resolveGlobalProductCategory } from "@/lib/shopping/product-category-resolver";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -85,12 +86,22 @@ export async function POST(request: Request) {
           unit: finalUnit,
           section: finalSection || "otros",
           notes: notes || null,
+          assigned_to_user_id: null,
           status: "pending"
         });
 
       if (error) {
         return NextResponse.json({ error: error?.message ?? "No se pudo crear el producto." }, { status: 500 });
       }
+
+      await logShoppingActivity({
+        listId,
+        actorUserId: user.id,
+        eventType: "item_added",
+        itemId: id,
+        spaceId: accessibleList.spaceId ?? null,
+        subjectName: name
+      });
 
       return NextResponse.json({
         item: {
@@ -102,6 +113,7 @@ export async function POST(request: Request) {
           unit: finalUnit,
           section: finalSection || "otros",
           notes: notes || null,
+          assignedToUserId: null,
           status: "pending",
           createdAt: now,
           updatedAt: now,
@@ -138,12 +150,22 @@ export async function POST(request: Request) {
             unit: finalUnit,
             section: finalSection || "otros",
             notes: notes || null,
+            assigned_to_user_id: null,
             status: "pending"
           });
 
         if (error) {
           return NextResponse.json({ error: error?.message ?? "No se pudo crear el producto." }, { status: 500 });
         }
+
+        await logShoppingActivity({
+          listId,
+          actorUserId: user.id,
+          eventType: "item_added",
+          itemId: id,
+          spaceId: accessibleList.spaceId ?? null,
+          subjectName: name
+        });
 
         return NextResponse.json({
           item: {
@@ -155,6 +177,7 @@ export async function POST(request: Request) {
             unit: finalUnit,
             section: finalSection || "otros",
             notes: notes || null,
+            assignedToUserId: null,
             status: "pending",
             createdAt: now,
             updatedAt: now,
@@ -193,12 +216,22 @@ export async function POST(request: Request) {
       unit: finalUnit,
       section: finalSection,
       notes: notes || null,
+      assigned_to_user_id: null,
       status: "pending"
     });
 
   if (error) {
     return NextResponse.json({ error: error?.message ?? "No se pudo crear el producto." }, { status: 500 });
   }
+
+  await logShoppingActivity({
+    listId,
+    actorUserId: user.id,
+    eventType: "item_added",
+    itemId: id,
+    spaceId: accessibleList.spaceId ?? null,
+    subjectName: name
+  });
 
   return NextResponse.json({
     item: {
@@ -210,6 +243,7 @@ export async function POST(request: Request) {
       unit: finalUnit,
       section: finalSection,
       notes: notes || null,
+      assignedToUserId: null,
       status: "pending",
       createdAt: now,
       updatedAt: now,

@@ -13,6 +13,7 @@ import {
   ShoppingItem,
   ShoppingList,
   ShoppingListInvite,
+  ShoppingMember,
   ShoppingSpace
 } from "@/types/shopping";
 
@@ -39,6 +40,7 @@ type ShoppingItemRow = {
   unit: string | null;
   section: ProductCatalogItem["category"] | null;
   notes: string | null;
+  assigned_to_user_id: string | null;
   status: "pending" | "bought";
   created_at: string;
   updated_at: string;
@@ -112,11 +114,51 @@ function mapItemRow(row: ShoppingItemRow): ShoppingItem {
     unit: row.unit,
     section: row.section,
     notes: row.notes,
+    assignedToUserId: row.assigned_to_user_id,
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     checkedAt: row.checked_at
   };
+}
+
+async function getMembersForList(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  listId: string
+): Promise<ShoppingMember[]> {
+  const { data: memberRows, error } = await supabase.from("shopping_list_members").select("user_id, role").eq("list_id", listId);
+
+  if (error || !memberRows || memberRows.length === 0) {
+    return [];
+  }
+
+  const authAdmin = (await import("@/lib/supabase/admin")).createSupabaseAdminClient();
+  const members = await Promise.all(
+    memberRows.map(async (row) => {
+      const authUser = await authAdmin.auth.admin.getUserById(row.user_id);
+      const user = authUser.data.user;
+      const metadata = user?.user_metadata ?? {};
+      const displayName =
+        (typeof metadata.full_name === "string" && metadata.full_name.trim()) ||
+        (typeof metadata.name === "string" && metadata.name.trim()) ||
+        (user?.email?.split("@")[0] ?? "Usuario");
+
+      return {
+        userId: row.user_id,
+        displayName,
+        email: user?.email ?? null,
+        role: row.role as "owner" | "editor"
+      } satisfies ShoppingMember;
+    })
+  );
+
+  return members.sort((memberA, memberB) => {
+    if (memberA.role !== memberB.role) {
+      return memberA.role === "owner" ? -1 : 1;
+    }
+
+    return memberA.displayName.localeCompare(memberB.displayName, "es");
+  });
 }
 
 function mapProductRow(row: ShoppingProductRow): ProductCatalogItem {
@@ -282,7 +324,7 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
 
   const { data: allItemsData, error: allItemsError } = await supabase
     .from("shopping_items")
-    .select("id, list_id, name, normalized_name, quantity, unit, section, notes, status, created_at, updated_at, checked_at")
+    .select("id, list_id, name, normalized_name, quantity, unit, section, notes, assigned_to_user_id, status, created_at, updated_at, checked_at")
     .order("created_at", { ascending: false })
     .limit(500);
 
@@ -324,6 +366,7 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
     listCount: listCountBySpaceId[space.id] ?? 0
   }));
   const currentList = selectedListId ? lists.find((list) => list.id === selectedListId) ?? null : null;
+  const currentListMembers = currentList ? await getMembersForList(supabase, currentList.id) : [];
 
   const items = allItems
     .filter((item) => item.listId === currentList?.id)
@@ -378,6 +421,7 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
     currentList,
     lists,
     spaces: spacesWithStats,
+    currentListMembers,
     items,
     suggestionItems,
     scheduledListReminders,
@@ -439,7 +483,7 @@ export async function findDuplicateNotice(productName: string): Promise<Shopping
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("shopping_items")
-    .select("id, list_id, name, normalized_name, quantity, unit, section, notes, status, created_at, updated_at, checked_at")
+    .select("id, list_id, name, normalized_name, quantity, unit, section, notes, assigned_to_user_id, status, created_at, updated_at, checked_at")
     .eq("normalized_name", normalized)
     .order("created_at", { ascending: false })
     .limit(20);

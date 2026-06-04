@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { logShoppingActivity } from "@/lib/shopping/activity-log";
 import { resolveGlobalProductCategory } from "@/lib/shopping/product-category-resolver";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { findDuplicateNotice, requireAuthenticatedUser } from "@/lib/supabase/queries";
@@ -439,6 +440,11 @@ export async function updateItemAction(_: ActionState, formData: FormData): Prom
   await getUserOrThrow();
   const normalizedName = normalizeProductName(parsed.data.name);
   const supabase = await createSupabaseServerClient();
+  const { data: existingItem } = await supabase
+    .from("shopping_items")
+    .select("list_id, name, quantity, unit, section, notes")
+    .eq("id", parsed.data.itemId)
+    .maybeSingle();
   const { error } = await supabase
     .from("shopping_items")
     .update({
@@ -453,6 +459,28 @@ export async function updateItemAction(_: ActionState, formData: FormData): Prom
 
   if (error) {
     return { error: error.message };
+  }
+
+  if (existingItem?.list_id) {
+    const changedFields = [
+      existingItem.name !== parsed.data.name ? "nombre" : null,
+      (existingItem.quantity ?? null) !== (parsed.data.quantity || null) ? "cantidad" : null,
+      (existingItem.unit ?? null) !== (parsed.data.unit || null) ? "unidad" : null,
+      (existingItem.section ?? "otros") !== (parsed.data.section || "otros") ? "sección" : null,
+      (existingItem.notes ?? null) !== (parsed.data.notes || null) ? "nota" : null
+    ].filter((value): value is string => Boolean(value));
+
+    const user = await getUserOrThrow();
+    await logShoppingActivity({
+      listId: existingItem.list_id,
+      actorUserId: user.id,
+      eventType: "item_updated",
+      itemId: parsed.data.itemId,
+      subjectName: parsed.data.name,
+      metadata: {
+        changedFields
+      }
+    });
   }
 
   revalidatePath("/app");

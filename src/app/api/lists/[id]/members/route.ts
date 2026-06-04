@@ -7,6 +7,14 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
+function getDisplayName(email: string | undefined, metadata: Record<string, unknown> | undefined) {
+  return (
+    (typeof metadata?.full_name === "string" && metadata.full_name.trim()) ||
+    (typeof metadata?.name === "string" && metadata.name.trim()) ||
+    (email?.split("@")[0] ?? "Usuario")
+  );
+}
+
 export async function GET(_: Request, context: RouteContext) {
   const { id } = await context.params;
   const supabase = await createSupabaseServerClient();
@@ -25,9 +33,9 @@ export async function GET(_: Request, context: RouteContext) {
     return NextResponse.json({ error: "No tienes acceso a esta lista." }, { status: 403 });
   }
 
-  const { data, error } = await admin
-    .from("shopping_items")
-    .select("id, list_id, name, normalized_name, quantity, unit, section, notes, assigned_to_user_id, status, created_at, updated_at, checked_at")
+  const { data: memberRows, error } = await admin
+    .from("shopping_list_members")
+    .select("user_id, role")
     .eq("list_id", id)
     .order("created_at", { ascending: true });
 
@@ -35,21 +43,20 @@ export async function GET(_: Request, context: RouteContext) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({
-    items: (data ?? []).map((item) => ({
-      id: item.id,
-      listId: item.list_id,
-      name: item.name,
-      normalizedName: item.normalized_name,
-      quantity: item.quantity,
-      unit: item.unit,
-      section: item.section,
-      notes: item.notes,
-      assignedToUserId: item.assigned_to_user_id,
-      status: item.status,
-      createdAt: item.created_at,
-      updatedAt: item.updated_at,
-      checkedAt: item.checked_at
-    }))
-  });
+  const members = await Promise.all(
+    (memberRows ?? []).map(async (member) => {
+      const authUser = await admin.auth.admin.getUserById(member.user_id);
+      const authMember = authUser.data.user;
+      const metadata = (authMember?.user_metadata ?? {}) as Record<string, unknown>;
+
+      return {
+        userId: member.user_id,
+        displayName: getDisplayName(authMember?.email, metadata),
+        email: authMember?.email ?? null,
+        role: member.role
+      };
+    })
+  );
+
+  return NextResponse.json({ members });
 }

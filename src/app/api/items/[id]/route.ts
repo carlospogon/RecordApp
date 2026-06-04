@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logShoppingActivity } from "@/lib/shopping/activity-log";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getAccessibleItemForUser } from "@/lib/supabase/shared-access";
@@ -25,6 +26,12 @@ export async function DELETE(_: Request, context: RouteContext) {
     return NextResponse.json({ error: "Item not found" }, { status: 404 });
   }
 
+  const { data: itemRow } = await admin
+    .from("shopping_items")
+    .select("name")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await admin
     .from("shopping_items")
     .delete()
@@ -33,6 +40,15 @@ export async function DELETE(_: Request, context: RouteContext) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await logShoppingActivity({
+    listId: accessibleItem.listId,
+    actorUserId: user.id,
+    eventType: "item_deleted",
+    itemId: id,
+    spaceId: accessibleItem.spaceId ?? null,
+    subjectName: typeof itemRow?.name === "string" ? itemRow.name : null
+  });
 
   return NextResponse.json({ ok: true });
 }

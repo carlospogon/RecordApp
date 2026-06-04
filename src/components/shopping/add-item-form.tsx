@@ -3,11 +3,13 @@
 import { useMemo, useState, useTransition } from "react";
 import { inferCategoryFromNormalizedName } from "@/lib/shopping/product-category-inference";
 import { normalizeProductName } from "@/lib/shopping/normalize-product";
-import { ProductCatalogItem, ShoppingDuplicateNotice, ShoppingItem } from "@/types/shopping";
+import { ProductCatalogItem, ShoppingDuplicateNotice, ShoppingItem, ShoppingMember } from "@/types/shopping";
 
 type AddItemFormProps = {
   listId: string;
   catalogProducts: ProductCatalogItem[];
+  currentItems?: ShoppingItem[];
+  members?: ShoppingMember[];
   onItemCreated?: (item: ShoppingItem) => void;
   onOptimisticItemCreated?: (item: ShoppingItem) => void;
   onItemDeleted?: (itemId: string) => void;
@@ -29,7 +31,15 @@ function formatDate(value?: string) {
   }).format(new Date(value));
 }
 
-export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimisticItemCreated, onItemDeleted }: AddItemFormProps) {
+export function AddItemForm({
+  listId,
+  catalogProducts,
+  currentItems = [],
+  members = [],
+  onItemCreated,
+  onOptimisticItemCreated,
+  onItemDeleted
+}: AddItemFormProps) {
   const [pending, startTransition] = useTransition();
   const availableProducts = useMemo(() => catalogProducts.filter((product) => product.active !== false), [catalogProducts]);
   const [name, setName] = useState("");
@@ -59,6 +69,17 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
     return normalizedInput ? inferCategoryFromNormalizedName(normalizedInput) : null;
   }, [normalizedInput, selectedProduct]);
   const listReady = !listId.startsWith("temp-list-");
+  const duplicateItemsInCurrentList = useMemo(
+    () => (normalizedInput ? currentItems.filter((item) => item.normalizedName === normalizedInput) : []),
+    [currentItems, normalizedInput]
+  );
+  const duplicateAssignees = useMemo(() => {
+    const assigneeNames = duplicateItemsInCurrentList
+      .map((item) => members.find((member) => member.userId === item.assignedToUserId)?.displayName ?? null)
+      .filter((value): value is string => Boolean(value));
+
+    return [...new Set(assigneeNames)];
+  }, [duplicateItemsInCurrentList, members]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -266,6 +287,20 @@ export function AddItemForm({ listId, catalogProducts, onItemCreated, onOptimist
             />
           </div>
         </div>
+
+        {duplicateItemsInCurrentList.length > 0 ? (
+          <div className="rounded-[22px] border border-[#f0d7a3] bg-[#fff8ea] px-4 py-4 text-sm leading-6 text-[#7b5b1d]">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-semibold text-[#5c4312]">Este producto ya está en la lista activa</p>
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#7b5b1d]">
+                {duplicateItemsInCurrentList.length} coincidencias
+              </span>
+            </div>
+            <p className="mt-2">
+              Revisa si conviene fusionarlo antes de añadirlo otra vez{duplicateAssignees.length > 0 ? ` o si ya lo está llevando ${duplicateAssignees.join(", ")}.` : "."}
+            </p>
+          </div>
+        ) : null}
 
         {error ? <p className="rounded-2xl bg-[#fff1f1] px-4 py-3 text-sm text-[#b44d4d]">{error}</p> : null}
         {success ? <p className="rounded-2xl bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--accent-strong)]">{success}</p> : null}

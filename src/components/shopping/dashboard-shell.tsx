@@ -23,6 +23,8 @@ import {
   ShoppingItem,
   ShoppingList,
   ShoppingListInvite,
+  ShoppingActivityEvent,
+  ShoppingMember,
   ShoppingSpace
 } from "@/types/shopping";
 
@@ -36,6 +38,318 @@ function formatDate(value?: string) {
     month: "short",
     year: "numeric"
   }).format(new Date(value));
+}
+
+function formatRelativeTime(value: string) {
+  const timestamp = new Date(value).getTime();
+  const diffMs = timestamp - Date.now();
+  const diffMinutes = Math.round(diffMs / (1000 * 60));
+  const absMinutes = Math.abs(diffMinutes);
+  const formatter = new Intl.RelativeTimeFormat("es", { numeric: "auto" });
+
+  if (absMinutes < 60) {
+    return formatter.format(diffMinutes, "minute");
+  }
+
+  const diffHours = Math.round(diffMinutes / 60);
+
+  if (Math.abs(diffHours) < 24) {
+    return formatter.format(diffHours, "hour");
+  }
+
+  const diffDays = Math.round(diffHours / 24);
+  return formatter.format(diffDays, "day");
+}
+
+type CollaborationActivityEntry = {
+  id: string;
+  title: string;
+  detail: string;
+  occurredAt: string;
+  tone: "neutral" | "success";
+};
+
+type DuplicateCluster = {
+  normalizedName: string;
+  displayName: string;
+  items: ShoppingItem[];
+};
+
+function buildRecentActivity(items: ShoppingItem[], members: ShoppingMember[]): CollaborationActivityEntry[] {
+  return items
+    .map((item) => {
+      const assignee = members.find((member) => member.userId === item.assignedToUserId)?.displayName ?? null;
+      const wasAssignedLater = Boolean(item.assignedToUserId && new Date(item.updatedAt).getTime() - new Date(item.createdAt).getTime() > 1000);
+
+      if (item.checkedAt) {
+        return {
+          id: `${item.id}-bought`,
+          title: `${item.name} marcado como comprado`,
+          detail: assignee ? `Responsable: ${assignee}` : "Cambio reciente en la lista",
+          occurredAt: item.checkedAt,
+          tone: "success"
+        } satisfies CollaborationActivityEntry;
+      }
+
+      if (wasAssignedLater) {
+        return {
+          id: `${item.id}-assigned`,
+          title: `${item.name} asignado`,
+          detail: assignee ? `Responsable actual: ${assignee}` : "Asignación actualizada",
+          occurredAt: item.updatedAt,
+          tone: "neutral"
+        } satisfies CollaborationActivityEntry;
+      }
+
+      return {
+        id: `${item.id}-created`,
+        title: `${item.name} añadido a la lista`,
+        detail: assignee ? `Ya asignado a ${assignee}` : "Pendiente de repartir",
+        occurredAt: item.createdAt,
+        tone: "neutral"
+      } satisfies CollaborationActivityEntry;
+    })
+    .sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
+    .slice(0, 6);
+}
+
+function mapActivityEventToEntry(event: ShoppingActivityEvent): CollaborationActivityEntry {
+  const subject = event.subjectName || "Elemento";
+
+  switch (event.eventType) {
+    case "item_added":
+      return {
+        id: event.id,
+        title: `${event.actorDisplayName} añadió ${subject}`,
+        detail: event.detail || "Nuevo producto en la lista",
+        occurredAt: event.createdAt,
+        tone: "neutral"
+      };
+    case "item_updated":
+      return {
+        id: event.id,
+        title: `${event.actorDisplayName} actualizó ${subject}`,
+        detail: event.detail || "Producto actualizado",
+        occurredAt: event.createdAt,
+        tone: "neutral"
+      };
+    case "item_deleted":
+      return {
+        id: event.id,
+        title: `${event.actorDisplayName} eliminó ${subject}`,
+        detail: event.detail || "Producto retirado de la lista",
+        occurredAt: event.createdAt,
+        tone: "neutral"
+      };
+    case "item_assigned":
+      return {
+        id: event.id,
+        title: `${event.actorDisplayName} repartió ${subject}`,
+        detail: event.detail || "Asignación actualizada",
+        occurredAt: event.createdAt,
+        tone: "neutral"
+      };
+    case "item_bought":
+      return {
+        id: event.id,
+        title: `${event.actorDisplayName} marcó ${subject} como comprado`,
+        detail: event.detail || "Compra confirmada",
+        occurredAt: event.createdAt,
+        tone: "success"
+      };
+    case "item_reopened":
+      return {
+        id: event.id,
+        title: `${event.actorDisplayName} devolvió ${subject} a pendientes`,
+        detail: event.detail || "Producto reabierto",
+        occurredAt: event.createdAt,
+        tone: "neutral"
+      };
+    case "list_created":
+      return {
+        id: event.id,
+        title: `${event.actorDisplayName} creó la lista`,
+        detail: event.detail || subject,
+        occurredAt: event.createdAt,
+        tone: "neutral"
+      };
+    case "list_finalized":
+      return {
+        id: event.id,
+        title: `${event.actorDisplayName} finalizó la lista`,
+        detail: event.detail || subject,
+        occurredAt: event.createdAt,
+        tone: "success"
+      };
+    default:
+      return {
+        id: event.id,
+        title: `${event.actorDisplayName} hizo un cambio`,
+        detail: event.detail || subject,
+        occurredAt: event.createdAt,
+        tone: "neutral"
+      };
+  }
+}
+
+function buildDuplicateClusters(items: ShoppingItem[]): DuplicateCluster[] {
+  const groups = items.reduce<Map<string, ShoppingItem[]>>((acc, item) => {
+    const current = acc.get(item.normalizedName) ?? [];
+    current.push(item);
+    acc.set(item.normalizedName, current);
+    return acc;
+  }, new Map());
+
+  return [...groups.entries()]
+    .filter(([, groupedItems]) => groupedItems.length > 1)
+    .map(([normalizedName, groupedItems]) => ({
+      normalizedName,
+      displayName: groupedItems[0]?.name ?? normalizedName,
+      items: groupedItems.slice().sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    }))
+    .sort((a, b) => b.items.length - a.items.length || a.displayName.localeCompare(b.displayName, "es"));
+}
+
+function CollaborationPanel({
+  listId,
+  items,
+  members
+}: {
+  listId: string;
+  items: ShoppingItem[];
+  members: ShoppingMember[];
+}) {
+  const fallbackActivity = useMemo(() => buildRecentActivity(items, members), [items, members]);
+  const duplicateClusters = useMemo(() => buildDuplicateClusters(items), [items]);
+  const [recentActivity, setRecentActivity] = useState<CollaborationActivityEntry[]>(fallbackActivity);
+
+  useEffect(() => {
+    setRecentActivity(fallbackActivity);
+  }, [fallbackActivity]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch(`/api/lists/${listId}/activity`, { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (cancelled || !payload?.activity) {
+          return;
+        }
+
+        const mapped = (payload.activity as ShoppingActivityEvent[]).map(mapActivityEventToEntry);
+        if (mapped.length > 0) {
+          setRecentActivity(mapped);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRecentActivity(fallbackActivity);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fallbackActivity, listId]);
+
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="rounded-[28px] border border-[rgba(115,121,114,0.16)] bg-[rgba(255,255,255,0.78)] p-5 shadow-[0_18px_36px_rgba(74,97,80,0.08)] backdrop-blur-[14px]">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Colaboración</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--text)]">Actividad y solapes de la lista</h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+            Señales rápidas para repartir mejor la compra y detectar productos repetidos antes de que generen fricción.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
+            {members.length} miembros
+          </span>
+          <span className="rounded-full bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
+            {duplicateClusters.length} solapes
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <section className="rounded-[24px] border border-[var(--border)] bg-white p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">Actividad reciente</p>
+              <h3 className="mt-1 text-lg font-semibold text-[var(--text)]">Últimos movimientos</h3>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3">
+            {recentActivity.length > 0 ? (
+              recentActivity.map((entry) => (
+                <article key={entry.id} className="rounded-[20px] border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className={`text-sm font-semibold ${entry.tone === "success" ? "text-[var(--accent-strong)]" : "text-[var(--text)]"}`}>
+                        {entry.title}
+                      </p>
+                      <p className="mt-1 text-sm text-[var(--muted)]">{entry.detail}</p>
+                    </div>
+                    <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                      {formatRelativeTime(entry.occurredAt)}
+                    </span>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <div className="rounded-[20px] border border-dashed border-[var(--border)] bg-[var(--surface-soft)] px-4 py-4 text-sm leading-6 text-[var(--muted)]">
+                Aún no hay suficiente actividad para construir una lectura colaborativa útil.
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-[24px] border border-[var(--border)] bg-white p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">Duplicados</p>
+          <h3 className="mt-1 text-lg font-semibold text-[var(--text)]">Productos que merecen revisión</h3>
+          <div className="mt-4 grid gap-3">
+            {duplicateClusters.length > 0 ? (
+              duplicateClusters.slice(0, 6).map((cluster) => {
+                const assignees = [...new Set(cluster.items.map((item) => members.find((member) => member.userId === item.assignedToUserId)?.displayName).filter(Boolean))];
+                const pendingCount = cluster.items.filter((item) => item.status === "pending").length;
+                const boughtCount = cluster.items.length - pendingCount;
+
+                return (
+                  <article key={cluster.normalizedName} className="rounded-[20px] border border-[#f0d7a3] bg-[#fff8ea] px-4 py-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-[#5c4312]">{cluster.displayName}</p>
+                        <p className="mt-1 text-sm text-[#7b5b1d]">
+                          {cluster.items.length} entradas en la misma lista{assignees.length > 0 ? ` · ${assignees.join(", ")}` : ""}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7b5b1d]">
+                        Revisar
+                      </span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#8a6b28]">
+                      <span className="rounded-full bg-white px-3 py-1">{pendingCount} pendientes</span>
+                      <span className="rounded-full bg-white px-3 py-1">{boughtCount} comprados</span>
+                    </div>
+                  </article>
+                );
+              })
+            ) : (
+              <div className="rounded-[20px] border border-dashed border-[var(--border)] bg-[var(--surface-soft)] px-4 py-4 text-sm leading-6 text-[var(--muted)]">
+                No se detectan productos repetidos en la lista activa. La colaboración va limpia por ahora.
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+    </section>
+  );
 }
 
 const navigationItems = [
@@ -59,6 +373,7 @@ function mapRealtimeItem(row: Record<string, unknown>): ShoppingItem {
     unit: typeof row.unit === "string" ? row.unit : null,
     section: typeof row.section === "string" ? (row.section as ShoppingItem["section"]) : null,
     notes: typeof row.notes === "string" ? row.notes : null,
+    assignedToUserId: typeof row.assigned_to_user_id === "string" ? row.assigned_to_user_id : null,
     status: row.status === "bought" ? "bought" : "pending",
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
@@ -69,6 +384,8 @@ function mapRealtimeItem(row: Record<string, unknown>): ShoppingItem {
 function FlowCard({
   currentList,
   currentItemsCount,
+  currentItems,
+  currentListMembers,
   spaces,
   selectedSpaceId,
   catalogProducts,
@@ -83,6 +400,8 @@ function FlowCard({
 }: {
   currentList: ShoppingList | null;
   currentItemsCount: number;
+  currentItems: ShoppingItem[];
+  currentListMembers: ShoppingMember[];
   spaces: ShoppingSpace[];
   selectedSpaceId?: string | null;
   catalogProducts: ProductCatalogItem[];
@@ -258,6 +577,8 @@ function FlowCard({
         <AddItemForm
           listId={currentList.id}
           catalogProducts={catalogProducts}
+          currentItems={currentItems}
+          members={currentListMembers}
           onItemCreated={onItemCreated}
           onOptimisticItemCreated={onOptimisticItemCreated}
           onItemDeleted={onItemDeleted}
@@ -722,6 +1043,7 @@ function AnalysisPanel({
 
 export function DashboardShell({
   currentList,
+  currentListMembers,
   items,
   suggestionItems,
   lists,
@@ -736,6 +1058,7 @@ export function DashboardShell({
   pushPublicKey
 }: {
   currentList: ShoppingList | null;
+  currentListMembers: ShoppingMember[];
   items: ShoppingItem[];
   suggestionItems: ShoppingItem[];
   lists: ShoppingList[];
@@ -752,6 +1075,7 @@ export function DashboardShell({
   const [localActiveTab, setLocalActiveTab] = useState(activeTab);
   const [localCurrentList, setLocalCurrentList] = useState(currentList);
   const [localItems, setLocalItems] = useState(items);
+  const [localCurrentListMembers, setLocalCurrentListMembers] = useState(currentListMembers);
   const [localLists, setLocalLists] = useState(lists);
   const [localSpaces, setLocalSpaces] = useState(spaces);
   const [localScheduledListReminders, setLocalScheduledListReminders] = useState(scheduledListReminders);
@@ -775,6 +1099,36 @@ export function DashboardShell({
   useEffect(() => {
     setLocalItems(items);
   }, [items]);
+
+  useEffect(() => {
+    setLocalCurrentListMembers(currentListMembers);
+  }, [currentListMembers]);
+
+  useEffect(() => {
+    if (!localCurrentList?.id || localCurrentList.id.startsWith("temp-list-")) {
+      setLocalCurrentListMembers([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    fetch(`/api/lists/${localCurrentList.id}/members`, { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (!cancelled && payload?.members) {
+          setLocalCurrentListMembers(payload.members as ShoppingMember[]);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLocalCurrentListMembers([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [localCurrentList?.id]);
 
   useEffect(() => {
     setLocalLists(lists);
@@ -1149,6 +1503,20 @@ export function DashboardShell({
     );
   }
 
+  function handleItemAssigned(itemId: string, assignedToUserId: string | null) {
+    setLocalItems((previous) =>
+      previous.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              assignedToUserId,
+              updatedAt: new Date().toISOString()
+            }
+          : item
+      )
+    );
+  }
+
   async function deleteListById(listId: string) {
     const response = await fetch(`/api/lists/${listId}`, {
       method: "DELETE"
@@ -1381,6 +1749,8 @@ export function DashboardShell({
             <FlowCard
               currentList={localCurrentList}
               currentItemsCount={localItems.length}
+              currentItems={localItems}
+              currentListMembers={localCurrentListMembers}
               spaces={localSpaces}
               selectedSpaceId={localSelectedSpaceId}
               catalogProducts={catalogProducts}
@@ -1393,9 +1763,16 @@ export function DashboardShell({
               onListCreationFailed={handleListCreationFailed}
               onListJoined={handleListJoined}
             />
+            {localCurrentList ? <CollaborationPanel listId={localCurrentList.id} items={localItems} members={localCurrentListMembers} /> : null}
             {localCurrentList ? (
               <section className="rounded-[28px] bg-white p-4 shadow-[0_16px_40px_rgba(18,40,28,0.08)] sm:p-5">
-                <ItemsList items={localItems} onDelete={handleItemDeleted} onToggle={handleItemToggled} />
+                <ItemsList
+                  items={localItems}
+                  members={localCurrentListMembers}
+                  onDelete={handleItemDeleted}
+                  onToggle={handleItemToggled}
+                  onAssign={handleItemAssigned}
+                />
               </section>
             ) : null}
           </>

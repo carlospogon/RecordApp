@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { updateItemAction, type ActionState } from "@/app/app/actions";
-import { ShoppingItem } from "@/types/shopping";
+import { ShoppingItem, ShoppingMember } from "@/types/shopping";
 
 const initialActionState: ActionState = {};
 const sectionLabels: Record<string, string> = {
@@ -76,6 +76,69 @@ async function toggleItemById(itemId: string) {
   }
 
   return (await response.json()) as { status: ShoppingItem["status"]; checkedAt: string | null };
+}
+
+async function assignItemById(itemId: string, assignedToUserId: string | null) {
+  const response = await fetch(`/api/items/${itemId}/assign`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ assignedToUserId })
+  });
+
+  if (!response.ok) {
+    throw new Error("No se pudo asignar el producto.");
+  }
+
+  return (await response.json()) as { assignedToUserId: string | null };
+}
+
+function AssigneeControl({
+  item,
+  members,
+  onAssign
+}: {
+  item: ShoppingItem;
+  members: ShoppingMember[];
+  onAssign: (itemId: string, assignedToUserId: string | null) => void;
+}) {
+  const [pending, startTransition] = useTransition();
+
+  if (members.length < 2) {
+    return null;
+  }
+
+  return (
+    <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+      Responsable
+      <select
+        value={item.assignedToUserId ?? ""}
+        disabled={pending}
+        onChange={(event) => {
+          const nextAssignedToUserId = event.currentTarget.value || null;
+          onAssign(item.id, nextAssignedToUserId);
+
+          startTransition(async () => {
+            try {
+              const result = await assignItemById(item.id, nextAssignedToUserId);
+              onAssign(item.id, result.assignedToUserId ?? null);
+            } catch {
+              onAssign(item.id, item.assignedToUserId ?? null);
+            }
+          });
+        }}
+        className="rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold normal-case tracking-normal text-[var(--text)] outline-none transition focus:border-[var(--accent)] disabled:opacity-60"
+      >
+        <option value="">Sin asignar</option>
+        {members.map((member) => (
+          <option key={member.userId} value={member.userId}>
+            {member.displayName}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 function EditItemForm({ item }: { item: ShoppingItem }) {
@@ -233,13 +296,16 @@ function DeleteItemButton({ itemId, onDelete }: { itemId: string; onDelete: (ite
 
 function PurchaseModeRow({
   item,
+  members,
   onToggle
 }: {
   item: ShoppingItem;
+  members: ShoppingMember[];
   onToggle: (itemId: string, nextStatus: ShoppingItem["status"], nextCheckedAt: string | null) => void;
 }) {
   const [pending, startTransition] = useTransition();
   const bought = item.status === "bought";
+  const assignee = members.find((member) => member.userId === item.assignedToUserId);
 
   return (
     <button
@@ -280,6 +346,11 @@ function PurchaseModeRow({
           {item.quantity ? `${item.quantity} ` : ""}
           {item.unit ?? "Sin unidad"}
         </p>
+        {assignee ? (
+          <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--accent-strong)]">
+            Responsable: {assignee.displayName}
+          </p>
+        ) : null}
         {item.notes ? <p className="mt-1 text-xs font-medium text-[#94644f]">{item.notes}</p> : null}
       </div>
       <span
@@ -295,16 +366,21 @@ function PurchaseModeRow({
 
 function ItemCard({
   item,
+  members,
   onDelete,
-  onToggle
+  onToggle,
+  onAssign
 }: {
   item: ShoppingItem;
+  members: ShoppingMember[];
   onDelete: (itemId: string) => void;
   onToggle: (itemId: string, nextStatus: ShoppingItem["status"], nextCheckedAt: string | null) => void;
+  onAssign: (itemId: string, assignedToUserId: string | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const bought = item.status === "bought";
   const checkedLabel = formatDateTime(item.checkedAt);
+  const assignee = members.find((member) => member.userId === item.assignedToUserId);
 
   return (
     <article
@@ -327,6 +403,11 @@ function ItemCard({
               <span className="rounded-full bg-[var(--surface-soft)] px-3 py-1 text-xs font-semibold text-[var(--accent-strong)]">
                 {sectionLabels[item.section ?? "otros"] ?? "Otros"}
               </span>
+              {assignee ? (
+                <span className="rounded-full bg-[#eef3ef] px-3 py-1 text-xs font-semibold text-[var(--accent-strong)]">
+                  {assignee.displayName}
+                </span>
+              ) : null}
               {item.notes ? (
                 <span className="rounded-full bg-[#fbf4ec] px-3 py-1 text-xs font-medium text-[#94644f]">{item.notes}</span>
               ) : null}
@@ -357,18 +438,26 @@ function ItemCard({
           <EditItemForm item={item} />
         </div>
       ) : null}
+
+      <div className="mt-4">
+        <AssigneeControl item={item} members={members} onAssign={onAssign} />
+      </div>
     </article>
   );
 }
 
 export function ItemsList({
   items,
+  members,
   onDelete,
-  onToggle
+  onToggle,
+  onAssign
 }: {
   items: ShoppingItem[];
+  members: ShoppingMember[];
   onDelete: (itemId: string) => void;
   onToggle: (itemId: string, nextStatus: ShoppingItem["status"], nextCheckedAt: string | null) => void;
+  onAssign: (itemId: string, assignedToUserId: string | null) => void;
 }) {
   const [viewMode, setViewMode] = useState<"organizada" | "compra">("organizada");
   const [showBoughtInPurchaseMode, setShowBoughtInPurchaseMode] = useState(true);
@@ -482,7 +571,7 @@ export function ItemsList({
                     return itemA.status === "pending" ? -1 : 1;
                   })
                   .map((item) => (
-                    <PurchaseModeRow key={item.id} item={item} onToggle={onToggle} />
+                    <PurchaseModeRow key={item.id} item={item} members={members} onToggle={onToggle} />
                   ))}
               </div>
             </section>
@@ -512,7 +601,7 @@ export function ItemsList({
                     return itemA.status === "pending" ? -1 : 1;
                   })
                   .map((item) => (
-                    <ItemCard key={item.id} item={item} onDelete={onDelete} onToggle={onToggle} />
+                    <ItemCard key={item.id} item={item} members={members} onDelete={onDelete} onToggle={onToggle} onAssign={onAssign} />
                   ))}
               </div>
             </section>

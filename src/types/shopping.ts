@@ -47,6 +47,31 @@ export type ShoppingSpace = {
   updatedAt: string;
 };
 
+export type ShoppingMember = {
+  userId: string;
+  displayName: string;
+  email?: string | null;
+  role: "owner" | "editor";
+};
+
+export type ShoppingActivityEvent = {
+  id: string;
+  actorUserId: string;
+  actorDisplayName: string;
+  eventType:
+    | "list_created"
+    | "list_finalized"
+    | "item_added"
+    | "item_updated"
+    | "item_deleted"
+    | "item_assigned"
+    | "item_bought"
+    | "item_reopened";
+  subjectName?: string | null;
+  detail?: string | null;
+  createdAt: string;
+};
+
 export type ShoppingItem = {
   id: string;
   listId: string;
@@ -56,6 +81,7 @@ export type ShoppingItem = {
   unit?: string | null;
   section?: ProductCategory | null;
   notes?: string | null;
+  assignedToUserId?: string | null;
   status: ShoppingItemStatus;
   createdAt: string;
   updatedAt: string;
@@ -149,6 +175,7 @@ export type ShoppingDashboardData = {
   currentList: ShoppingList | null;
   lists: ShoppingList[];
   spaces: ShoppingSpace[];
+  currentListMembers: ShoppingMember[];
   items: ShoppingItem[];
   suggestionItems: ShoppingItem[];
   scheduledListReminders: ScheduledListReminder[];

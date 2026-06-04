@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logShoppingActivity } from "@/lib/shopping/activity-log";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -104,6 +105,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: membershipError.message }, { status: 500 });
     }
   }
+
+  await logShoppingActivity({
+    listId: id,
+    actorUserId: user.id,
+    eventType: "list_created",
+    spaceId,
+    subjectName: title,
+    metadata: {
+      listTitle: title
+    }
+  });
 
   return NextResponse.json({
     list: {
