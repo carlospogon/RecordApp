@@ -6,6 +6,12 @@ type AccessibleList = {
   spaceId?: string | null;
 };
 
+type AccessibleTemplate = {
+  id: string;
+  ownerId: string;
+  spaceId?: string | null;
+};
+
 export async function getAccessibleListForUser(listId: string, userId: string): Promise<AccessibleList | null> {
   const admin = createSupabaseAdminClient();
 
@@ -71,5 +77,48 @@ export async function getAccessibleItemForUser(
     itemId: item.id,
     listId: item.list_id,
     spaceId: accessibleList.spaceId ?? null
+  };
+}
+
+export async function getAccessibleTemplateForUser(templateId: string, userId: string): Promise<AccessibleTemplate | null> {
+  const admin = createSupabaseAdminClient();
+
+  const { data: template, error: templateError } = await admin
+    .from("shopping_list_templates")
+    .select("id, user_id, space_id")
+    .eq("id", templateId)
+    .maybeSingle();
+
+  if (templateError || !template) {
+    return null;
+  }
+
+  if (template.user_id === userId) {
+    return {
+      id: template.id,
+      ownerId: template.user_id,
+      spaceId: template.space_id ?? null
+    };
+  }
+
+  if (!template.space_id) {
+    return null;
+  }
+
+  const { data: membership, error: membershipError } = await admin
+    .from("shopping_space_members")
+    .select("space_id")
+    .eq("space_id", template.space_id)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (membershipError || !membership?.space_id) {
+    return null;
+  }
+
+  return {
+    id: template.id,
+    ownerId: template.user_id,
+    spaceId: template.space_id ?? null
   };
 }

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { quickAddReminderItemAction, signOutAction } from "@/app/app/actions";
 import { AddItemForm } from "@/components/shopping/add-item-form";
 import { CreateListForm } from "@/components/shopping/create-list-form";
+import { buildRepeatedListTitle } from "@/lib/shopping/repeat-title";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { currentAppRelease, developerSignature } from "@/lib/app-release";
 import {
@@ -23,6 +24,7 @@ import {
   ShoppingItem,
   ShoppingList,
   ShoppingListInvite,
+  ShoppingListTemplate,
   ShoppingActivityEvent,
   ShoppingMember,
   ShoppingSpace
@@ -386,6 +388,8 @@ function FlowCard({
   currentItemsCount,
   currentItems,
   currentListMembers,
+  reusableLists,
+  templates,
   spaces,
   selectedSpaceId,
   catalogProducts,
@@ -402,6 +406,8 @@ function FlowCard({
   currentItemsCount: number;
   currentItems: ShoppingItem[];
   currentListMembers: ShoppingMember[];
+  reusableLists: ShoppingList[];
+  templates: ShoppingListTemplate[];
   spaces: ShoppingSpace[];
   selectedSpaceId?: string | null;
   catalogProducts: ProductCatalogItem[];
@@ -433,6 +439,8 @@ function FlowCard({
         <CreateListForm
           spaces={spaces}
           selectedSpaceId={selectedSpaceId}
+          reusableLists={reusableLists}
+          templates={templates}
           onOptimisticListCreated={onOptimisticListCreated}
           onListCreated={onListCreated}
           onListCreationFailed={onListCreationFailed}
@@ -1047,6 +1055,7 @@ export function DashboardShell({
   items,
   suggestionItems,
   lists,
+  templates,
   spaces,
   reminders,
   frequentProducts,
@@ -1062,6 +1071,7 @@ export function DashboardShell({
   items: ShoppingItem[];
   suggestionItems: ShoppingItem[];
   lists: ShoppingList[];
+  templates: ShoppingListTemplate[];
   spaces: ShoppingSpace[];
   reminders: ReminderSuggestion[];
   frequentProducts: ProductInsight[];
@@ -1077,6 +1087,7 @@ export function DashboardShell({
   const [localItems, setLocalItems] = useState(items);
   const [localCurrentListMembers, setLocalCurrentListMembers] = useState(currentListMembers);
   const [localLists, setLocalLists] = useState(lists);
+  const [localTemplates, setLocalTemplates] = useState(templates);
   const [localSpaces, setLocalSpaces] = useState(spaces);
   const [localScheduledListReminders, setLocalScheduledListReminders] = useState(scheduledListReminders);
   const [localSelectedListId, setLocalSelectedListId] = useState<string | null>(selectedListId ?? null);
@@ -1103,6 +1114,10 @@ export function DashboardShell({
   useEffect(() => {
     setLocalCurrentListMembers(currentListMembers);
   }, [currentListMembers]);
+
+  useEffect(() => {
+    setLocalTemplates(templates);
+  }, [templates]);
 
   useEffect(() => {
     if (!localCurrentList?.id || localCurrentList.id.startsWith("temp-list-")) {
@@ -1380,13 +1395,158 @@ export function DashboardShell({
     syncListUrl(list.id);
   }
 
-  function handleListCreated(list: ShoppingList) {
+  function handleListCreated(list: ShoppingList, itemsForList?: ShoppingItem[]) {
     setLocalCurrentList((previous) => (previous?.id === list.id ? list : previous));
     setLocalSelectedListId(list.id);
     setLocalLists((previous) => previous.map((entry) => (entry.id === list.id ? list : entry)));
+    if (itemsForList) {
+      setLocalItems(itemsForList);
+    }
     setLocalScheduledListReminders((previous) => previous);
 
     syncListUrl(list.id);
+  }
+
+  async function handleRepeatList(list: ShoppingList) {
+    const listId = crypto.randomUUID();
+    const now = new Date();
+    const shoppingDate = now.toISOString().slice(0, 10);
+    const sourceSpace = list.spaceId ? localSpaces.find((space) => space.id === list.spaceId) ?? null : null;
+    const optimisticList: ShoppingList = {
+      id: listId,
+      ownerId: "local-owner",
+      spaceId: list.spaceId ?? null,
+      spaceName: sourceSpace?.name ?? list.spaceName ?? null,
+      shared: Boolean(list.spaceId || list.shared),
+      accessRole: "owner",
+      title: buildRepeatedListTitle(list.title, now),
+      shoppingDate,
+      reminderDate: null,
+      reminderSentAt: null,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      completedAt: null,
+      itemCount: list.itemCount ?? 0
+    };
+
+    handleOptimisticListCreated(optimisticList);
+    setLocalActiveTab("lista");
+
+    try {
+      const response = await fetch("/api/lists", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          id: listId,
+          title: optimisticList.title,
+          shoppingDate,
+          spaceId: list.spaceId ?? "",
+          sourceListId: list.id
+        })
+      });
+
+      const payload = (await response.json()) as { list?: ShoppingList; items?: ShoppingItem[]; error?: string };
+
+      if (!response.ok || !payload.list) {
+        throw new Error(payload.error || "No se pudo repetir la lista.");
+      }
+
+      handleListCreated(payload.list, payload.items);
+    } catch {
+      handleListCreationFailed(listId);
+    }
+  }
+
+  async function handleCreateTemplate(list: ShoppingList) {
+    const response = await fetch("/api/templates", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        listId: list.id,
+        title: `${list.title.replace(/\s*\(plantilla\)$/i, "").trim()} (plantilla)`
+      })
+    });
+
+    const payload = (await response.json()) as { template?: ShoppingListTemplate; error?: string };
+
+    if (!response.ok || !payload.template) {
+      throw new Error(payload.error || "No se pudo guardar la plantilla.");
+    }
+
+    setLocalTemplates((previous) => [payload.template as ShoppingListTemplate, ...previous.filter((template) => template.id !== payload.template?.id)]);
+  }
+
+  async function handleUseTemplate(template: ShoppingListTemplate) {
+    const listId = crypto.randomUUID();
+    const now = new Date();
+    const shoppingDate = now.toISOString().slice(0, 10);
+    const sourceSpace = template.spaceId ? localSpaces.find((space) => space.id === template.spaceId) ?? null : null;
+    const optimisticList: ShoppingList = {
+      id: listId,
+      ownerId: "local-owner",
+      spaceId: template.spaceId ?? null,
+      spaceName: sourceSpace?.name ?? template.spaceName ?? null,
+      shared: Boolean(template.spaceId),
+      accessRole: "owner",
+      title: template.title.replace(/\s*\(plantilla\)$/i, "").trim() || "Lista de compra",
+      shoppingDate,
+      reminderDate: null,
+      reminderSentAt: null,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      completedAt: null,
+      itemCount: template.itemCount
+    };
+
+    handleOptimisticListCreated(optimisticList);
+    setLocalActiveTab("lista");
+
+    try {
+      const response = await fetch(`/api/templates/${template.id}/instantiate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          listId,
+          title: optimisticList.title,
+          shoppingDate,
+          spaceId: template.spaceId ?? ""
+        })
+      });
+
+      const payload = (await response.json()) as { list?: ShoppingList; items?: ShoppingItem[]; error?: string };
+
+      if (!response.ok || !payload.list) {
+        throw new Error(payload.error || "No se pudo crear la lista desde plantilla.");
+      }
+
+      handleListCreated(payload.list, payload.items);
+    } catch {
+      handleListCreationFailed(listId);
+    }
+  }
+
+  async function handleDeleteTemplate(templateId: string) {
+    const previousTemplates = localTemplates;
+    setLocalTemplates((current) => current.filter((template) => template.id !== templateId));
+
+    try {
+      const response = await fetch(`/api/templates/${templateId}`, {
+        method: "DELETE"
+      });
+
+      if (!response.ok) {
+        throw new Error("No se pudo eliminar la plantilla.");
+      }
+    } catch {
+      setLocalTemplates(previousTemplates);
+      throw new Error("No se pudo eliminar la plantilla.");
+    }
   }
 
   function handleListCreationFailed(listId: string) {
@@ -1751,6 +1911,8 @@ export function DashboardShell({
               currentItemsCount={localItems.length}
               currentItems={localItems}
               currentListMembers={localCurrentListMembers}
+              reusableLists={localLists.filter((list) => (list.itemCount ?? 0) > 0)}
+              templates={localTemplates}
               spaces={localSpaces}
               selectedSpaceId={localSelectedSpaceId}
               catalogProducts={catalogProducts}
@@ -1779,7 +1941,16 @@ export function DashboardShell({
         ) : null}
 
         {localActiveTab === "historial" ? (
-          <ListsPanel lists={localLists} selectedListId={localCurrentList?.id ?? null} onDeleteList={handleDeleteLists} />
+          <ListsPanel
+            lists={localLists}
+            templates={localTemplates}
+            selectedListId={localCurrentList?.id ?? null}
+            onDeleteList={handleDeleteLists}
+            onRepeatList={handleRepeatList}
+            onCreateTemplate={handleCreateTemplate}
+            onUseTemplate={handleUseTemplate}
+            onDeleteTemplate={handleDeleteTemplate}
+          />
         ) : null}
 
         {localActiveTab === "sugerencias" ? (

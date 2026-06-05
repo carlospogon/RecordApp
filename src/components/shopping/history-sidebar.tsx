@@ -13,7 +13,7 @@ import { PushRemindersButton } from "@/components/pwa/push-reminders-button";
 import { getProductVisual } from "@/lib/shopping/product-visuals";
 import { getCategoryEstimateDays, getCategoryEstimateLabel } from "@/lib/shopping/product-insights";
 import { buildSmartSuggestion } from "@/lib/shopping/smart-recommendations";
-import { ProductCatalogItem, ProductCategory, ProductInsight, ReminderSuggestion, ScheduledListReminder, ShoppingItem, ShoppingList } from "@/types/shopping";
+import { ProductCatalogItem, ProductCategory, ProductInsight, ReminderSuggestion, ScheduledListReminder, ShoppingItem, ShoppingList, ShoppingListTemplate } from "@/types/shopping";
 
 const initialActionState: ActionState = {};
 const productCategories: ProductCategory[] = [
@@ -44,6 +44,45 @@ function formatDate(value?: string) {
 function diffInDays(from: Date, to: Date) {
   const delta = to.getTime() - from.getTime();
   return Math.max(0, Math.floor(delta / (1000 * 60 * 60 * 24)));
+}
+
+function getReuseSignals(list: ShoppingList) {
+  const itemCount = list.itemCount ?? 0;
+  const referenceDate = list.completedAt ?? list.shoppingDate;
+  const ageDays = diffInDays(new Date(referenceDate), new Date());
+  let score = 0;
+  const badges: string[] = [];
+
+  if (itemCount >= 5) {
+    score += 2;
+    badges.push("Compra completa");
+  } else if (itemCount >= 2) {
+    score += 1;
+    badges.push("Reposicion util");
+  }
+
+  if (ageDays <= 14) {
+    score += 2;
+    badges.push("Muy reciente");
+  } else if (ageDays <= 35) {
+    score += 1;
+    badges.push("Rutina reciente");
+  }
+
+  if (list.spaceId) {
+    score += 1;
+    badges.push("Compartida");
+  }
+
+  if (list.completedAt) {
+    score += 1;
+  }
+
+  return {
+    score,
+    badges,
+    accentLabel: score >= 4 ? "Ideal para repetir" : score >= 2 ? "Buena base" : "Recuperable"
+  };
 }
 
 function PanelFrame({
@@ -431,21 +470,48 @@ export function ProductCatalogPanel({ catalogProducts }: { catalogProducts: Prod
 
 export function ListsPanel({
   lists,
+  templates,
   selectedListId,
   pageSize = 5,
-  onDeleteList
+  onDeleteList,
+  onRepeatList,
+  onCreateTemplate,
+  onUseTemplate,
+  onDeleteTemplate
 }: {
   lists: ShoppingList[];
+  templates: ShoppingListTemplate[];
   selectedListId?: string | null;
   pageSize?: number;
   onDeleteList: (listIds: string[]) => Promise<void> | void;
+  onRepeatList: (list: ShoppingList) => Promise<void> | void;
+  onCreateTemplate: (list: ShoppingList) => Promise<void> | void;
+  onUseTemplate: (template: ShoppingListTemplate) => Promise<void> | void;
+  onDeleteTemplate: (templateId: string) => Promise<void> | void;
 }) {
   const [page, setPage] = useState(0);
   const [selectedListIds, setSelectedListIds] = useState<string[]>([]);
   const [pendingDelete, startDeleteTransition] = useTransition();
+  const [pendingRepeatId, setPendingRepeatId] = useState<string | null>(null);
+  const [pendingTemplateListId, setPendingTemplateListId] = useState<string | null>(null);
+  const [pendingUseTemplateId, setPendingUseTemplateId] = useState<string | null>(null);
+  const [pendingDeleteTemplateId, setPendingDeleteTemplateId] = useState<string | null>(null);
   const totalPages = Math.max(1, Math.ceil(lists.length / pageSize));
   const safePage = Math.min(page, totalPages - 1);
   const visibleLists = lists.slice(safePage * pageSize, safePage * pageSize + pageSize);
+  const recommendedLists = [...lists]
+    .filter((list) => (list.itemCount ?? 0) > 0)
+    .sort((listA, listB) => {
+      const signalA = getReuseSignals(listA);
+      const signalB = getReuseSignals(listB);
+
+      if (signalA.score !== signalB.score) {
+        return signalB.score - signalA.score;
+      }
+
+      return new Date(listB.completedAt ?? listB.shoppingDate).getTime() - new Date(listA.completedAt ?? listA.shoppingDate).getTime();
+    })
+    .slice(0, 3);
   const timelineMax = Math.max(...visibleLists.map((list) => list.itemCount ?? 0), 1);
   const allVisibleSelected = visibleLists.length > 0 && visibleLists.every((list) => selectedListIds.includes(list.id));
 
@@ -521,10 +587,121 @@ export function ListsPanel({
             </div>
           </div>
 
+          {recommendedLists.length > 0 ? (
+            <div className="mb-4 rounded-[22px] border border-[var(--border)] bg-[linear-gradient(135deg,#eef8ef_0%,#f8fcf8_100%)] p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--accent)]">Repeticion inteligente</p>
+                  <p className="mt-1 text-sm text-[var(--muted)]">Estas son las listas que mÃ¡s tiempo te ahorrarÃ­an hoy.</p>
+                </div>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[var(--muted)]">Top {recommendedLists.length}</span>
+              </div>
+              <div className="mt-4 grid gap-3">
+                {recommendedLists.map((list) => {
+                  const reuseSignals = getReuseSignals(list);
+
+                  return (
+                    <article key={`${list.id}-recommended`} className="rounded-[20px] border border-[rgba(112,150,130,0.14)] bg-white p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-[var(--text)]">{list.title}</p>
+                          <p className="mt-1 text-sm text-[var(--muted)]">
+                            {formatDate(list.shoppingDate)} · {list.itemCount ?? 0} productos
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className="rounded-full bg-[var(--accent-soft)] px-3 py-1 text-[11px] font-semibold text-[var(--accent-strong)]">
+                              {reuseSignals.accentLabel}
+                            </span>
+                            {reuseSignals.badges.map((badge) => (
+                              <span key={`${list.id}-${badge}`} className="rounded-full bg-[#f6f8f5] px-3 py-1 text-[11px] font-semibold text-[var(--muted)]">
+                                {badge}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={pendingRepeatId === list.id}
+                            onClick={() => {
+                              setPendingRepeatId(list.id);
+                              Promise.resolve(onRepeatList(list)).finally(() => {
+                                setPendingRepeatId((current) => (current === list.id ? null : current));
+                              });
+                            }}
+                            className="rounded-full border border-[var(--accent)] bg-white px-3 py-2 text-xs font-semibold text-[var(--accent-strong)] transition hover:bg-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {pendingRepeatId === list.id ? "Repitiendo..." : "Repetir ahora"}
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {templates.length > 0 ? (
+            <div className="mb-4 rounded-[22px] border border-[var(--border)] bg-[#fcfdfc] p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--accent)]">Plantillas</p>
+                  <p className="mt-1 text-sm text-[var(--muted)]">Tus bases manuales para arrancar listas sin volver a pensar lo mismo.</p>
+                </div>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[var(--muted)]">{templates.length} guardadas</span>
+              </div>
+              <div className="mt-4 grid gap-3">
+                {templates.slice(0, 4).map((template) => (
+                  <article key={template.id} className="rounded-[20px] border border-[var(--border)] bg-white p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-[var(--text)]">{template.title}</p>
+                        <p className="mt-1 text-sm text-[var(--muted)]">
+                          {template.itemCount} productos
+                          {template.spaceName ? ` · ${template.spaceName}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={pendingUseTemplateId === template.id}
+                          onClick={() => {
+                            setPendingUseTemplateId(template.id);
+                            Promise.resolve(onUseTemplate(template)).finally(() => {
+                              setPendingUseTemplateId((current) => (current === template.id ? null : current));
+                            });
+                          }}
+                          className="rounded-full border border-[var(--accent)] bg-white px-3 py-2 text-xs font-semibold text-[var(--accent-strong)] transition hover:bg-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {pendingUseTemplateId === template.id ? "Creando..." : "Usar plantilla"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pendingDeleteTemplateId === template.id}
+                          onClick={() => {
+                            setPendingDeleteTemplateId(template.id);
+                            Promise.resolve(onDeleteTemplate(template.id)).finally(() => {
+                              setPendingDeleteTemplateId((current) => (current === template.id ? null : current));
+                            });
+                          }}
+                          className="rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--muted)] transition hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {pendingDeleteTemplateId === template.id ? "Eliminando..." : "Quitar"}
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div className="grid gap-3">
             {visibleLists.map((list) => {
               const active = selectedListId === list.id;
               const checked = selectedListIds.includes(list.id);
+              const reuseSignals = getReuseSignals(list);
 
               return (
                 <article
@@ -547,6 +724,16 @@ export function ListsPanel({
                         <div>
                           <p className="text-sm font-semibold text-[var(--text)]">{list.title}</p>
                           <p className="mt-1 text-sm text-[var(--muted)]">{formatDate(list.shoppingDate)}</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-[var(--accent-strong)]">
+                              {reuseSignals.accentLabel}
+                            </span>
+                            {reuseSignals.badges.slice(0, 2).map((badge) => (
+                              <span key={badge} className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-[var(--muted)]">
+                                {badge}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -560,6 +747,32 @@ export function ListsPanel({
                       >
                         Abrir
                       </Link>
+                      <button
+                        type="button"
+                        disabled={pendingRepeatId === list.id || (list.itemCount ?? 0) === 0}
+                        onClick={() => {
+                          setPendingRepeatId(list.id);
+                          Promise.resolve(onRepeatList(list)).finally(() => {
+                            setPendingRepeatId((current) => (current === list.id ? null : current));
+                          });
+                        }}
+                        className="rounded-full border border-[var(--accent)] bg-white px-3 py-2 text-xs font-semibold text-[var(--accent-strong)] transition hover:bg-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {pendingRepeatId === list.id ? "Repitiendo..." : "Repetir"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pendingTemplateListId === list.id || (list.itemCount ?? 0) === 0}
+                        onClick={() => {
+                          setPendingTemplateListId(list.id);
+                          Promise.resolve(onCreateTemplate(list)).finally(() => {
+                            setPendingTemplateListId((current) => (current === list.id ? null : current));
+                          });
+                        }}
+                        className="rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--text)] transition hover:bg-[#f7faf8] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {pendingTemplateListId === list.id ? "Guardando..." : "Guardar plantilla"}
+                      </button>
                       <button
                         type="button"
                         onClick={() => {

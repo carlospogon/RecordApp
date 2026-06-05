@@ -30,6 +30,19 @@ export type ShoppingList = {
   itemCount?: number;
 };
 
+export type ShoppingListTemplate = {
+  id: string;
+  ownerId?: string;
+  spaceId?: string | null;
+  spaceName?: string | null;
+  sourceListId?: string | null;
+  title: string;
+  description?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  itemCount: number;
+};
+
 export type ShoppingListInvite = {
   listId: string;
   shareCode: string;
@@ -174,6 +187,7 @@ export type ShoppingDashboardData = {
   userAvatarUrl?: string | null;
   currentList: ShoppingList | null;
   lists: ShoppingList[];
+  templates: ShoppingListTemplate[];
   spaces: ShoppingSpace[];
   currentListMembers: ShoppingMember[];
   items: ShoppingItem[];

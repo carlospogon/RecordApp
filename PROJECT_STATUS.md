@@ -1,6 +1,6 @@
 # RecordApp - Estado del proyecto
 
-Fecha de actualización: 4 de junio de 2026
+Fecha de actualización: 5 de junio de 2026
 
 ## Resumen ejecutivo
 
@@ -10,8 +10,9 @@ En este momento:
 
 - `Bloque 1` está cerrado.
 - `Bloque 2` está cerrado.
-- `Bloque 3` está en progreso, con la primera entrega colaborativa ya implementada en local.
-- Los bloques `4` a `8` siguen pendientes, pero el roadmap ha sido refinado para incorporar predicción, gasto real, tickets, comparativas y alertas push.
+- `Bloque 3` está cerrado y desplegado.
+- `Bloque 4` queda cerrado a nivel funcional.
+- Los bloques `5` a `8` siguen pendientes, pero el roadmap ya está refinado para incorporar predicción, gasto real, tickets, comparativas y alertas push.
 
 ## Lo ya hecho
 
@@ -85,13 +86,13 @@ Incluye:
 - Corrección en `auth` para evitar que capas visuales interceptaran clicks.
 - Builds verificadas durante las entregas principales.
 
-## Trabajo ya iniciado del Bloque 3
+## Bloque 3 ya cerrado
 
 ### Bloque 3: Compra colaborativa
 
-Estado: `en progreso`
+Estado: `hecho`
 
-Primera entrega ya implementada en local:
+Incluye:
 
 - Asignación de productos a miembros.
 - Soporte de `assigned_to_user_id` en items.
@@ -100,18 +101,20 @@ Primera entrega ya implementada en local:
 - Carga de miembros de la lista activa en el dashboard.
 - Selector de responsable dentro de cada producto.
 - Visualización de responsable también en `Modo compra`.
+- Actividad reciente persistida con actor y tipo de acción.
+- Detección de solapes o duplicados dentro de la lista activa.
+- Aviso preventivo al intentar añadir un producto ya presente en la lista.
+- Notificaciones push para asignaciones, productos marcados como comprados y cierre de listas compartidas.
 
-Pendiente para cerrar el bloque:
+Resultado esperado:
 
-- Actividad reciente visible de la lista o espacio.
-- Detección de duplicados o solapes dentro del contexto colaborativo.
-- Señales claras de coordinación para evitar que varios miembros añadan o compren lo mismo sin darse cuenta.
+- Comprar en grupo con menos fricción, más trazabilidad y mejor coordinación.
 
 ## Roadmap refinado de bloques pendientes
 
 ### Bloque 3: Compra colaborativa
 
-Estado: `en progreso`
+Estado: `hecho`
 
 Objetivo:
 
@@ -131,7 +134,7 @@ Resultado esperado:
 
 ### Bloque 4: Repetición inteligente
 
-Estado: `pendiente`
+Estado: `hecho`
 
 Objetivo:
 
@@ -145,6 +148,11 @@ Incluye:
 - Reutilización rápida de compras frecuentes.
 - Sugerencias iniciales basadas en recurrencia.
 - Alertas suaves para iniciar una lista repetida cuando detecte patrón.
+- Acción `Repetir` directa desde `Historial`.
+- Guardar listas reales como plantillas reutilizables.
+- Sección visible de plantillas guardadas con uso y borrado.
+- Señales de reutilización para destacar las listas más rentables de repetir.
+- Nombre sugerido al crear desde historial o plantilla.
 
 Resultado esperado:
 
@@ -268,18 +276,17 @@ Aplicación prevista:
 
 ## Orden recomendado a partir de aquí
 
-1. Cerrar `Bloque 3`.
-2. Pasar a `Bloque 4` para activar repetición inteligente.
-3. Continuar con `Bloque 5` para abrir la capa predictiva.
-4. Pasar después a `Bloque 8` para introducir tickets, gasto real y comparativas.
-5. Abrir `Bloque 6` con inventario ya apoyado en historial y compras reales.
-6. Cerrar después `Bloque 7` con caducidades y consumo prioritario.
+1. Pasar a `Bloque 4` para activar repetición inteligente.
+2. Continuar con `Bloque 5` para abrir la capa predictiva.
+3. Pasar después a `Bloque 8` para introducir tickets, gasto real y comparativas.
+4. Abrir `Bloque 6` con inventario ya apoyado en historial y compras reales.
+5. Cerrar después `Bloque 7` con caducidades y consumo prioritario.
 
 ## Estado global actual
 
 - `Bloque 1`: hecho
 - `Bloque 2`: hecho
-- `Bloque 3`: en progreso
+- `Bloque 3`: hecho
 - `Bloque 4`: pendiente
 - `Bloque 5`: pendiente
 - `Bloque 6`: pendiente

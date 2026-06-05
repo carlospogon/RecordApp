@@ -112,6 +112,7 @@ export default async function AppPage({
             suggestionItems={data.suggestionItems}
             scheduledListReminders={data.scheduledListReminders}
             lists={data.lists}
+            templates={data.templates}
             spaces={data.spaces}
             reminders={data.reminders}
             frequentProducts={frequentProducts}

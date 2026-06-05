@@ -13,6 +13,7 @@ import {
   ShoppingItem,
   ShoppingList,
   ShoppingListInvite,
+  ShoppingListTemplate,
   ShoppingMember,
   ShoppingSpace
 } from "@/types/shopping";
@@ -75,6 +76,21 @@ type ShoppingSpaceMemberRow = {
   role: "owner" | "editor";
 };
 
+type ShoppingListTemplateRow = {
+  id: string;
+  user_id?: string;
+  space_id?: string | null;
+  source_list_id?: string | null;
+  title: string;
+  description?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type ShoppingListTemplateItemRow = {
+  template_id: string;
+};
+
 function mapListRow(row: ShoppingListRow): ShoppingList {
   return {
     id: row.id,
@@ -101,6 +117,20 @@ function mapSpaceRow(row: ShoppingSpaceRow): ShoppingSpace {
     accessRole: row.user_id ? "owner" : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at
+  };
+}
+
+function mapTemplateRow(row: ShoppingListTemplateRow): ShoppingListTemplate {
+  return {
+    id: row.id,
+    ownerId: row.user_id,
+    spaceId: row.space_id ?? null,
+    sourceListId: row.source_list_id ?? null,
+    title: row.title,
+    description: row.description ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    itemCount: 0
   };
 }
 
@@ -332,6 +362,36 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
     throw new Error(allItemsError.message);
   }
 
+  let templateRowsData: ShoppingListTemplateRow[] | null = [];
+  let templateItemsData: ShoppingListTemplateItemRow[] | null = [];
+
+  try {
+    const { data: fetchedTemplates, error: fetchedTemplatesError } = await supabase
+      .from("shopping_list_templates")
+      .select("id, user_id, space_id, source_list_id, title, description, created_at, updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(50);
+
+    if (fetchedTemplatesError) {
+      throw fetchedTemplatesError;
+    }
+
+    const { data: fetchedTemplateItems, error: fetchedTemplateItemsError } = await supabase
+      .from("shopping_list_template_items")
+      .select("template_id")
+      .limit(500);
+
+    if (fetchedTemplateItemsError) {
+      throw fetchedTemplateItemsError;
+    }
+
+    templateRowsData = (fetchedTemplates ?? []) as ShoppingListTemplateRow[];
+    templateItemsData = (fetchedTemplateItems ?? []) as ShoppingListTemplateItemRow[];
+  } catch {
+    templateRowsData = [];
+    templateItemsData = [];
+  }
+
   const allItems = (allItemsData ?? []).map((row) => mapItemRow(row as ShoppingItemRow));
   const spaces = (spacesData ?? []).map((row) => {
     const space = mapSpaceRow(row as ShoppingSpaceRow);
@@ -342,6 +402,11 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
     };
   });
   const spaceById = new Map(spaces.map((space) => [space.id, space]));
+  const templateItemCountByTemplateId = (templateItemsData ?? []).reduce<Record<string, number>>((acc, row) => {
+    const templateId = (row as ShoppingListTemplateItemRow).template_id;
+    acc[templateId] = (acc[templateId] ?? 0) + 1;
+    return acc;
+  }, {});
   const itemCountByListId = allItems.reduce<Record<string, number>>((acc, item) => {
     acc[item.listId] = (acc[item.listId] ?? 0) + 1;
     return acc;
@@ -365,6 +430,14 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
     ...space,
     listCount: listCountBySpaceId[space.id] ?? 0
   }));
+  const templates = (templateRowsData ?? []).map((row) => {
+    const template = mapTemplateRow(row as ShoppingListTemplateRow);
+    return {
+      ...template,
+      spaceName: template.spaceId ? spaceById.get(template.spaceId)?.name ?? null : null,
+      itemCount: templateItemCountByTemplateId[template.id] ?? 0
+    };
+  });
   const currentList = selectedListId ? lists.find((list) => list.id === selectedListId) ?? null : null;
   const currentListMembers = currentList ? await getMembersForList(supabase, currentList.id) : [];
 
@@ -420,6 +493,7 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
     userAvatarUrl: getUserAvatarUrl(user),
     currentList,
     lists,
+    templates,
     spaces: spacesWithStats,
     currentListMembers,
     items,

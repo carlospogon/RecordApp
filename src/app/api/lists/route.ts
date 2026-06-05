@@ -9,6 +9,7 @@ type CreateListPayload = {
   shoppingDate?: string;
   reminderDate?: string;
   spaceId?: string;
+  sourceListId?: string;
 };
 
 export async function POST(request: Request) {
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
   const shoppingDate = typeof body.shoppingDate === "string" ? body.shoppingDate.trim() : "";
   const reminderDate = typeof body.reminderDate === "string" && body.reminderDate.trim() ? body.reminderDate.trim() : null;
   const spaceId = typeof body.spaceId === "string" && body.spaceId.trim() ? body.spaceId.trim() : null;
+  const sourceListId = typeof body.sourceListId === "string" && body.sourceListId.trim() ? body.sourceListId.trim() : null;
 
   if (!shoppingDate) {
     return NextResponse.json({ error: "Introduce una fecha valida para crear la lista." }, { status: 400 });
@@ -79,6 +81,102 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error?.message ?? "No se pudo crear la lista." }, { status: 500 });
   }
 
+  let clonedItems: Array<{
+    id: string;
+    listId: string;
+    name: string;
+    normalizedName: string;
+    quantity: string | null;
+    unit: string | null;
+    section: string | null;
+    notes: string | null;
+    assignedToUserId: string | null;
+    status: "pending" | "bought";
+    createdAt: string;
+    updatedAt: string;
+    checkedAt: string | null;
+  }> = [];
+
+  if (sourceListId) {
+    const { data: sourceList, error: sourceListError } = await supabase
+      .from("shopping_lists")
+      .select("user_id")
+      .eq("id", sourceListId)
+      .maybeSingle();
+
+    if (sourceListError || !sourceList) {
+      await admin.from("shopping_lists").delete().eq("id", id);
+      return NextResponse.json({ error: "No se encontro la lista que quieres reutilizar." }, { status: 404 });
+    }
+
+    const { data: sourceMembership, error: sourceMembershipError } = await supabase
+      .from("shopping_list_members")
+      .select("list_id")
+      .eq("list_id", sourceListId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const canReuseSourceList = sourceList.user_id === user.id || Boolean(sourceMembership?.list_id);
+
+    if (sourceMembershipError || !canReuseSourceList) {
+      await admin.from("shopping_lists").delete().eq("id", id);
+      return NextResponse.json({ error: "No tienes acceso a la lista que quieres reutilizar." }, { status: 403 });
+    }
+
+    const { data: sourceItems, error: sourceItemsError } = await supabase
+      .from("shopping_items")
+      .select("name, normalized_name, quantity, unit, section, notes")
+      .eq("list_id", sourceListId)
+      .order("created_at", { ascending: true });
+
+    if (sourceItemsError) {
+      await admin.from("shopping_lists").delete().eq("id", id);
+      return NextResponse.json({ error: sourceItemsError.message }, { status: 500 });
+    }
+
+    const itemRows = (sourceItems ?? []).map((item) => {
+      const itemId = crypto.randomUUID();
+
+      return {
+        id: itemId,
+        list_id: id,
+        user_id: user.id,
+        name: item.name,
+        normalized_name: item.normalized_name,
+        quantity: item.quantity,
+        unit: item.unit,
+        section: item.section,
+        notes: item.notes,
+        status: "pending" as const
+      };
+    });
+
+    if (itemRows.length > 0) {
+      const { error: insertItemsError } = await admin.from("shopping_items").insert(itemRows);
+
+      if (insertItemsError) {
+        await admin.from("shopping_lists").delete().eq("id", id);
+        return NextResponse.json({ error: insertItemsError.message }, { status: 500 });
+      }
+
+      clonedItems = itemRows.map((item) => ({
+        id: item.id,
+        listId: id,
+        name: item.name,
+        normalizedName: item.normalized_name,
+        quantity: item.quantity,
+        unit: item.unit,
+        section: item.section,
+        notes: item.notes,
+        assignedToUserId: null,
+        status: "pending",
+        createdAt: now,
+        updatedAt: now,
+        checkedAt: null
+      }));
+    }
+  }
+
   if (spaceId) {
     const { data: members, error: membersError } = await admin
       .from("shopping_space_members")
@@ -132,7 +230,8 @@ export async function POST(request: Request) {
       createdAt: now,
       updatedAt: now,
       completedAt: null,
-      itemCount: 0
-    }
+      itemCount: clonedItems.length
+    },
+    items: clonedItems
   });
 }
