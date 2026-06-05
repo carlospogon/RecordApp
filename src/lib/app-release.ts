@@ -10,6 +10,21 @@ export const developerSignature = "A CPG Dynamics Product";
 
 export const appReleaseNotes: AppReleaseNote[] = [
   {
+    version: "1.9.0",
+    title: "Smart Repetition And Templates",
+    releaseDate: "2026-06-06",
+    summary:
+      "¡Hola! En esta versión hemos hecho que volver a hacer una compra se sienta mucho más natural. Ahora puedes repetir listas anteriores, guardarlas como plantillas, crear compras nuevas desde esas plantillas y dejar que RecordApp te señale cuáles son las listas que más te compensa reutilizar. Desde el equipo de RecordApp esperamos que estas mejoras te ahorren tiempo cada semana y te ayuden a arrancar listas casi hechas.",
+    highlights: [
+      "Ahora puedes repetir una lista anterior con un toque desde Historial. Caso de uso: si cada viernes haces una compra parecida, puedes recuperar esa base en segundos en lugar de volver a escribirla entera.",
+      "Las listas repetidas salen con un nombre sugerido más claro. Caso de uso: si reutilizas varias compras parecidas, distingues rápidamente cuál corresponde a esta semana sin renombrarla a mano.",
+      "Ya puedes guardar una lista real como plantilla. Caso de uso: si tienes una compra fija para hogar, desayuno o limpieza, la conviertes en plantilla y la reutilizas cuando quieras.",
+      "También puedes crear una lista nueva directamente desde una plantilla. Caso de uso: si tienes una plantilla de compra mensual, arrancas la lista ya montada y solo ajustas lo que cambió esta vez.",
+      "Historial destaca las listas más reutilizables con señales simples de recurrencia. Caso de uso: si dudas entre varias compras pasadas, la app te sugiere primero las que más probablemente te ahorren tiempo hoy.",
+      "La sección de plantillas ya permite usar y quitar plantillas guardadas desde la propia app. Caso de uso: si una rutina deja de servirte, la eliminas sin tocar tu historial de compras reales."
+    ]
+  },
+  {
     version: "1.8.0",
     title: "Collaborative Shopping Signals",
     releaseDate: "2026-06-04",
