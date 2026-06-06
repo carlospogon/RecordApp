@@ -39,6 +39,10 @@ function buildAppBaseUrl(request: Request) {
   return url.origin;
 }
 
+function buildInviteLink(request: Request, shareCode: string) {
+  return `${buildAppBaseUrl(request)}/auth?mode=signup&invite=${encodeURIComponent(shareCode)}`;
+}
+
 async function findUserByEmail(admin: ReturnType<typeof createSupabaseAdminClient>, email: string) {
   let page = 1;
   const perPage = 200;
@@ -64,7 +68,7 @@ async function findUserByEmail(admin: ReturnType<typeof createSupabaseAdminClien
   }
 }
 
-export async function GET(_: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
   const { id } = await context.params;
   const supabase = await createSupabaseServerClient();
   const admin = createSupabaseAdminClient();
@@ -124,7 +128,8 @@ export async function GET(_: Request, context: RouteContext) {
     shareCode: invite.share_code,
     status: invite.status,
     createdAt: invite.created_at,
-    acceptedAt: invite.accepted_at
+    acceptedAt: invite.accepted_at,
+    inviteLink: buildInviteLink(request, invite.share_code)
   }));
 
   return NextResponse.json({ members, pendingInvites });
@@ -136,7 +141,7 @@ export async function POST(request: Request, context: RouteContext) {
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
 
   if (!email) {
-    return NextResponse.json({ error: "Necesitamos un email para añadir a alguien." }, { status: 400 });
+    return NextResponse.json({ error: "Necesitamos un email para anadir a alguien." }, { status: 400 });
   }
 
   const supabase = await createSupabaseServerClient();
@@ -156,7 +161,7 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   if (accessibleList.ownerId !== user.id) {
-    return NextResponse.json({ error: "Solo el propietario puede añadir participantes." }, { status: 403 });
+    return NextResponse.json({ error: "Solo el propietario puede anadir participantes." }, { status: 403 });
   }
 
   const actorMetadata = (user.user_metadata ?? {}) as Record<string, unknown>;
@@ -191,7 +196,7 @@ export async function POST(request: Request, context: RouteContext) {
         .single();
 
       if (inviteError || !createdInvite?.share_code) {
-        return NextResponse.json({ error: inviteError?.message ?? "No se pudo generar la invitación." }, { status: 500 });
+        return NextResponse.json({ error: inviteError?.message ?? "No se pudo generar la invitacion." }, { status: 500 });
       }
 
       shareCode = createdInvite.share_code;
@@ -199,20 +204,21 @@ export async function POST(request: Request, context: RouteContext) {
 
     await admin.from("shopping_lists").update({ shared: true }).eq("id", id);
 
-    const inviteLink = `${buildAppBaseUrl(request)}/auth?mode=signup&invite=${encodeURIComponent(shareCode)}`;
+    const inviteLink = buildInviteLink(request, shareCode);
+    let deliveryMethod: "email" | "manual_link" = "manual_link";
 
-    try {
-      await sendListInviteEmail({
-        to: email,
-        ownerName: actorDisplayName,
-        listName: listTitle,
-        appLink: inviteLink
-      });
-    } catch (error) {
-      return NextResponse.json(
-        { error: error instanceof Error ? error.message : "No se pudo enviar la invitación por email." },
-        { status: 500 }
-      );
+    if (env.RESEND_API_KEY && env.EMAIL_FROM_ADDRESS) {
+      try {
+        await sendListInviteEmail({
+          to: email,
+          ownerName: actorDisplayName,
+          listName: listTitle,
+          appLink: inviteLink
+        });
+        deliveryMethod = "email";
+      } catch {
+        deliveryMethod = "manual_link";
+      }
     }
 
     const nowIso = new Date().toISOString();
@@ -234,12 +240,13 @@ export async function POST(request: Request, context: RouteContext) {
       .single();
 
     if (persistedInviteError || !persistedInvite) {
-      return NextResponse.json({ error: persistedInviteError?.message ?? "No se pudo guardar la invitación pendiente." }, { status: 500 });
+      return NextResponse.json({ error: persistedInviteError?.message ?? "No se pudo guardar la invitacion pendiente." }, { status: 500 });
     }
 
     return NextResponse.json({
       invitedByEmail: true,
       email,
+      deliveryMethod,
       listShared: true,
       pendingInvite: {
         id: persistedInvite.id,
@@ -247,7 +254,8 @@ export async function POST(request: Request, context: RouteContext) {
         shareCode: persistedInvite.share_code,
         status: persistedInvite.status,
         createdAt: persistedInvite.created_at,
-        acceptedAt: persistedInvite.accepted_at
+        acceptedAt: persistedInvite.accepted_at,
+        inviteLink
       }
     });
   }
@@ -283,13 +291,12 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   await admin.from("shopping_list_email_invites").delete().eq("list_id", id).eq("email", email);
-
   await admin.from("shopping_lists").update({ shared: true }).eq("id", id);
 
   if (!existingMembership?.user_id && targetUser.id !== user.id) {
     void sendPushNotificationToUsers([targetUser.id], {
       title: "RecordApp",
-      body: `${actorDisplayName} te ha añadido a ${listTitle}.`,
+      body: `${actorDisplayName} te ha anadido a ${listTitle}.`,
       url: `/app?list=${id}&tab=lista`
     }).catch(() => undefined);
   }
@@ -307,7 +314,7 @@ export async function DELETE(request: Request, context: RouteContext) {
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
 
   if (!email) {
-    return NextResponse.json({ error: "Necesitamos el email de la invitación que quieres cancelar." }, { status: 400 });
+    return NextResponse.json({ error: "Necesitamos el email de la invitacion que quieres cancelar." }, { status: 400 });
   }
 
   const supabase = await createSupabaseServerClient();

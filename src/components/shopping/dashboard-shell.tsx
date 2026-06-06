@@ -451,6 +451,7 @@ function FlowCard({
   const [participantSuccess, setParticipantSuccess] = useState<string | null>(null);
   const [participantPending, startParticipantTransition] = useTransition();
   const [pendingInviteActionEmail, setPendingInviteActionEmail] = useState<string | null>(null);
+  const [copiedInviteEmail, setCopiedInviteEmail] = useState<string | null>(null);
 
   if (!currentList) {
     return (
@@ -639,6 +640,7 @@ function FlowCard({
                       member?: ShoppingMember;
                       added?: boolean;
                       invitedByEmail?: boolean;
+                      deliveryMethod?: "email" | "manual_link";
                       email?: string;
                       pendingInvite?: ShoppingPendingInvite;
                       listShared?: boolean;
@@ -664,8 +666,16 @@ function FlowCard({
                     if (payload.invitedByEmail) {
                       if (payload.pendingInvite) {
                         onPendingInviteAdded(payload.pendingInvite, Boolean(payload.listShared));
+                        if (payload.deliveryMethod === "manual_link" && payload.pendingInvite.inviteLink) {
+                          await navigator.clipboard?.writeText(payload.pendingInvite.inviteLink);
+                          setCopiedInviteEmail(payload.pendingInvite.email);
+                        }
                       }
-                      setParticipantSuccess(`Invitación enviada a ${payload.email}. Cuando entre desde el enlace, podrá unirse a la lista.`);
+                      setParticipantSuccess(
+                        payload.deliveryMethod === "manual_link"
+                          ? `No hay correo configurado en este entorno. Enlace copiado para compartir con ${payload.email}.`
+                          : `Invitación enviada a ${payload.email}. Cuando entre desde el enlace, podrá unirse a la lista.`
+                      );
                       return;
                     }
 
@@ -690,11 +700,25 @@ function FlowCard({
                   <div>
                     <p className="text-sm font-semibold text-[var(--text)]">{invite.email}</p>
                     <p className="mt-1 text-xs text-[var(--muted)]">Enviada el {formatDate(invite.createdAt)} · código {invite.shareCode}</p>
+                    {copiedInviteEmail === invite.email ? <p className="mt-1 text-xs text-[var(--accent-strong)]">Enlace copiado al portapapeles.</p> : null}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
                       Pendiente
                     </span>
+                    {invite.inviteLink ? (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await navigator.clipboard?.writeText(invite.inviteLink ?? "");
+                          setCopiedInviteEmail(invite.email);
+                          setParticipantSuccess(`Enlace de invitación copiado para ${invite.email}.`);
+                        }}
+                        className="rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text)] transition hover:bg-[var(--surface-soft)]"
+                      >
+                        Copiar enlace
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       disabled={pendingInviteActionEmail === invite.email}
@@ -713,6 +737,7 @@ function FlowCard({
                             });
                             const payload = (await response.json()) as {
                               pendingInvite?: ShoppingPendingInvite;
+                              deliveryMethod?: "email" | "manual_link";
                               email?: string;
                               listShared?: boolean;
                               error?: string;
@@ -723,7 +748,15 @@ function FlowCard({
                             }
 
                             onPendingInviteAdded(payload.pendingInvite, Boolean(payload.listShared));
-                            setParticipantSuccess(`Invitación reenviada a ${payload.email}.`);
+                            if (payload.deliveryMethod === "manual_link" && payload.pendingInvite.inviteLink) {
+                              await navigator.clipboard?.writeText(payload.pendingInvite.inviteLink);
+                              setCopiedInviteEmail(payload.pendingInvite.email);
+                            }
+                            setParticipantSuccess(
+                              payload.deliveryMethod === "manual_link"
+                                ? `Enlace de invitación listo para compartir con ${payload.email}.`
+                                : `Invitación reenviada a ${payload.email}.`
+                            );
                           } catch (error) {
                             setParticipantError(error instanceof Error ? error.message : "No se pudo reenviar la invitación.");
                           } finally {

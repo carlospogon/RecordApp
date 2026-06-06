@@ -74,6 +74,7 @@ export type ShoppingPendingInvite = {
   status: "pending" | "accepted";
   createdAt: string;
   acceptedAt?: string | null;
+  inviteLink?: string;
 };
 
 export type ShoppingActivityEvent = {
