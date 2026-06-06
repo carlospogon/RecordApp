@@ -27,6 +27,7 @@ import {
   ShoppingListTemplate,
   ShoppingActivityEvent,
   ShoppingMember,
+  ShoppingPendingInvite,
   ShoppingSpace
 } from "@/types/shopping";
 
@@ -61,6 +62,16 @@ function formatRelativeTime(value: string) {
 
   const diffDays = Math.round(diffHours / 24);
   return formatter.format(diffDays, "day");
+}
+
+function sortMembers(members: ShoppingMember[]) {
+  return [...members].sort((memberA, memberB) => {
+    if (memberA.role !== memberB.role) {
+      return memberA.role === "owner" ? -1 : 1;
+    }
+
+    return memberA.displayName.localeCompare(memberB.displayName, "es");
+  });
 }
 
 type CollaborationActivityEntry = {
@@ -388,6 +399,7 @@ function FlowCard({
   currentItemsCount,
   currentItems,
   currentListMembers,
+  currentListPendingInvites,
   reusableLists,
   templates,
   spaces,
@@ -400,12 +412,16 @@ function FlowCard({
   onListCreated,
   onOptimisticListCreated,
   onListCreationFailed,
-  onListJoined
+  onListJoined,
+  onMemberAdded,
+  onPendingInviteAdded,
+  onPendingInviteRemoved
 }: {
   currentList: ShoppingList | null;
   currentItemsCount: number;
   currentItems: ShoppingItem[];
   currentListMembers: ShoppingMember[];
+  currentListPendingInvites: ShoppingPendingInvite[];
   reusableLists: ShoppingList[];
   templates: ShoppingListTemplate[];
   spaces: ShoppingSpace[];
@@ -419,6 +435,9 @@ function FlowCard({
   onOptimisticListCreated: (list: ShoppingList) => void;
   onListCreationFailed: (listId: string) => void;
   onListJoined: (list: ShoppingList) => void;
+  onMemberAdded: (member: ShoppingMember, listShared: boolean) => void;
+  onPendingInviteAdded: (invite: ShoppingPendingInvite, listShared: boolean) => void;
+  onPendingInviteRemoved: (email: string) => void;
 }) {
   const [pendingFinalize, startFinalizeTransition] = useTransition();
   const [shareInvite, setShareInvite] = useState<ShoppingListInvite | null>(null);
@@ -427,6 +446,11 @@ function FlowCard({
   const [joinCode, setJoinCode] = useState("");
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joinPending, startJoinTransition] = useTransition();
+  const [participantEmail, setParticipantEmail] = useState("");
+  const [participantError, setParticipantError] = useState<string | null>(null);
+  const [participantSuccess, setParticipantSuccess] = useState<string | null>(null);
+  const [participantPending, startParticipantTransition] = useTransition();
+  const [pendingInviteActionEmail, setPendingInviteActionEmail] = useState<string | null>(null);
 
   if (!currentList) {
     return (
@@ -580,6 +604,179 @@ function FlowCard({
         </div>
       ) : null}
       {shareError ? <p className="mt-3 text-sm text-[#b44d4d]">{shareError}</p> : null}
+
+      {currentList.accessRole === "owner" ? (
+        <div className="mt-4 rounded-[22px] border border-[var(--border)] bg-white p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Añadir participante</p>
+          <h3 className="mt-2 text-lg font-semibold tracking-[-0.03em] text-[var(--text)]">Comparte esta lista con una persona concreta</h3>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+            Esta primera entrega añade directamente a usuarios ya registrados y les avisa por push sin mover el resto del flujo.
+          </p>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <input
+              type="email"
+              value={participantEmail}
+              onChange={(event) => setParticipantEmail(event.currentTarget.value)}
+              placeholder="persona@correo.com"
+              className="flex-1 rounded-[18px] border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
+            />
+            <button
+              type="button"
+              disabled={participantPending || !participantEmail.trim()}
+              onClick={() => {
+                setParticipantError(null);
+                setParticipantSuccess(null);
+                startParticipantTransition(async () => {
+                  try {
+                    const response = await fetch(`/api/lists/${currentList.id}/members`, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json"
+                      },
+                      body: JSON.stringify({ email: participantEmail })
+                    });
+                    const payload = (await response.json()) as {
+                      member?: ShoppingMember;
+                      added?: boolean;
+                      invitedByEmail?: boolean;
+                      email?: string;
+                      pendingInvite?: ShoppingPendingInvite;
+                      listShared?: boolean;
+                      error?: string;
+                    };
+
+                    if (!response.ok) {
+                      throw new Error(payload.error || "No se pudo añadir a esa persona.");
+                    }
+
+                    setParticipantEmail("");
+
+                    if (payload.member) {
+                      onMemberAdded(payload.member, Boolean(payload.listShared));
+                      setParticipantSuccess(
+                        payload.added
+                          ? `${payload.member.displayName} ya puede entrar en esta lista.`
+                          : `${payload.member.displayName} ya formaba parte de esta lista.`
+                      );
+                      return;
+                    }
+
+                    if (payload.invitedByEmail) {
+                      if (payload.pendingInvite) {
+                        onPendingInviteAdded(payload.pendingInvite, Boolean(payload.listShared));
+                      }
+                      setParticipantSuccess(`Invitación enviada a ${payload.email}. Cuando entre desde el enlace, podrá unirse a la lista.`);
+                      return;
+                    }
+
+                    throw new Error("No se pudo añadir a esa persona.");
+                  } catch (error) {
+                    setParticipantError(error instanceof Error ? error.message : "No se pudo añadir a esa persona.");
+                  }
+                });
+              }}
+              className="rounded-full bg-[var(--surface-strong)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1d3028] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {participantPending ? "Añadiendo..." : "Añadir"}
+            </button>
+          </div>
+          {participantSuccess ? <p className="mt-3 text-sm text-[var(--accent-strong)]">{participantSuccess}</p> : null}
+          {participantError ? <p className="mt-3 text-sm text-[#b44d4d]">{participantError}</p> : null}
+          {currentListPendingInvites.length > 0 ? (
+            <div className="mt-4 grid gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Pendientes</p>
+              {currentListPendingInvites.map((invite) => (
+                <div key={invite.id} className="flex flex-wrap items-center justify-between gap-2 rounded-[18px] bg-[var(--surface-soft)] px-4 py-3">
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--text)]">{invite.email}</p>
+                    <p className="mt-1 text-xs text-[var(--muted)]">Enviada el {formatDate(invite.createdAt)} · código {invite.shareCode}</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
+                      Pendiente
+                    </span>
+                    <button
+                      type="button"
+                      disabled={pendingInviteActionEmail === invite.email}
+                      onClick={() => {
+                        setParticipantError(null);
+                        setParticipantSuccess(null);
+                        setPendingInviteActionEmail(invite.email);
+                        startParticipantTransition(async () => {
+                          try {
+                            const response = await fetch(`/api/lists/${currentList.id}/members`, {
+                              method: "POST",
+                              headers: {
+                                "Content-Type": "application/json"
+                              },
+                              body: JSON.stringify({ email: invite.email })
+                            });
+                            const payload = (await response.json()) as {
+                              pendingInvite?: ShoppingPendingInvite;
+                              email?: string;
+                              listShared?: boolean;
+                              error?: string;
+                            };
+
+                            if (!response.ok || !payload.pendingInvite) {
+                              throw new Error(payload.error || "No se pudo reenviar la invitación.");
+                            }
+
+                            onPendingInviteAdded(payload.pendingInvite, Boolean(payload.listShared));
+                            setParticipantSuccess(`Invitación reenviada a ${payload.email}.`);
+                          } catch (error) {
+                            setParticipantError(error instanceof Error ? error.message : "No se pudo reenviar la invitación.");
+                          } finally {
+                            setPendingInviteActionEmail((current) => (current === invite.email ? null : current));
+                          }
+                        });
+                      }}
+                      className="rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text)] transition hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Reenviar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pendingInviteActionEmail === invite.email}
+                      onClick={() => {
+                        setParticipantError(null);
+                        setParticipantSuccess(null);
+                        setPendingInviteActionEmail(invite.email);
+                        startParticipantTransition(async () => {
+                          try {
+                            const response = await fetch(`/api/lists/${currentList.id}/members`, {
+                              method: "DELETE",
+                              headers: {
+                                "Content-Type": "application/json"
+                              },
+                              body: JSON.stringify({ email: invite.email })
+                            });
+                            const payload = (await response.json()) as { ok?: boolean; email?: string; error?: string };
+
+                            if (!response.ok || !payload.ok) {
+                              throw new Error(payload.error || "No se pudo cancelar la invitación.");
+                            }
+
+                            onPendingInviteRemoved(invite.email);
+                            setParticipantSuccess(`Invitación cancelada para ${payload.email}.`);
+                          } catch (error) {
+                            setParticipantError(error instanceof Error ? error.message : "No se pudo cancelar la invitación.");
+                          } finally {
+                            setPendingInviteActionEmail((current) => (current === invite.email ? null : current));
+                          }
+                        });
+                      }}
+                      className="rounded-full border border-[#ead8d2] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#a45f4a] transition hover:bg-[#fff7f4] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="mt-5">
         <AddItemForm
@@ -1052,6 +1249,7 @@ function AnalysisPanel({
 export function DashboardShell({
   currentList,
   currentListMembers,
+  currentListPendingInvites = [],
   items,
   suggestionItems,
   lists,
@@ -1064,10 +1262,12 @@ export function DashboardShell({
   activeTab,
   selectedListId,
   scheduledListReminders,
-  pushPublicKey
+  pushPublicKey,
+  pendingInviteCode
 }: {
   currentList: ShoppingList | null;
   currentListMembers: ShoppingMember[];
+  currentListPendingInvites?: ShoppingPendingInvite[];
   items: ShoppingItem[];
   suggestionItems: ShoppingItem[];
   lists: ShoppingList[];
@@ -1081,11 +1281,13 @@ export function DashboardShell({
   selectedListId?: string | null;
   scheduledListReminders: { listId: string; title: string; shoppingDate: string; reminderDate: string; isDue: boolean }[];
   pushPublicKey?: string;
+  pendingInviteCode?: string | null;
 }) {
   const [localActiveTab, setLocalActiveTab] = useState(activeTab);
   const [localCurrentList, setLocalCurrentList] = useState(currentList);
   const [localItems, setLocalItems] = useState(items);
   const [localCurrentListMembers, setLocalCurrentListMembers] = useState(currentListMembers);
+  const [localCurrentListPendingInvites, setLocalCurrentListPendingInvites] = useState(currentListPendingInvites);
   const [localLists, setLocalLists] = useState(lists);
   const [localTemplates, setLocalTemplates] = useState(templates);
   const [localSpaces, setLocalSpaces] = useState(spaces);
@@ -1094,6 +1296,7 @@ export function DashboardShell({
   const [localSelectedSpaceId, setLocalSelectedSpaceId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [, startPendingInviteJoin] = useTransition();
 
   useEffect(() => {
     setLocalActiveTab(activeTab);
@@ -1116,12 +1319,17 @@ export function DashboardShell({
   }, [currentListMembers]);
 
   useEffect(() => {
+    setLocalCurrentListPendingInvites(currentListPendingInvites);
+  }, [currentListPendingInvites]);
+
+  useEffect(() => {
     setLocalTemplates(templates);
   }, [templates]);
 
   useEffect(() => {
     if (!localCurrentList?.id || localCurrentList.id.startsWith("temp-list-")) {
       setLocalCurrentListMembers([]);
+      setLocalCurrentListPendingInvites([]);
       return;
     }
 
@@ -1132,11 +1340,13 @@ export function DashboardShell({
       .then((payload) => {
         if (!cancelled && payload?.members) {
           setLocalCurrentListMembers(payload.members as ShoppingMember[]);
+          setLocalCurrentListPendingInvites((payload.pendingInvites as ShoppingPendingInvite[]) ?? []);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setLocalCurrentListMembers([]);
+          setLocalCurrentListPendingInvites([]);
         }
       });
 
@@ -1160,6 +1370,43 @@ export function DashboardShell({
   useEffect(() => {
     setLocalSelectedListId(selectedListId ?? null);
   }, [selectedListId]);
+
+  useEffect(() => {
+    if (!pendingInviteCode) {
+      return;
+    }
+
+    let cancelled = false;
+
+    startPendingInviteJoin(async () => {
+      try {
+        const response = await fetch("/api/lists/join", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ shareCode: pendingInviteCode })
+        });
+        const payload = (await response.json()) as { list?: ShoppingList };
+
+        if (!cancelled && response.ok && payload.list) {
+          handleListJoined(payload.list);
+        }
+      } catch {
+        return;
+      } finally {
+        if (!cancelled) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("invite");
+          window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+        }
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingInviteCode]);
 
   useEffect(() => {
     if (!localCurrentList?.id || localCurrentList.id.startsWith("temp-list-")) {
@@ -1591,6 +1838,51 @@ export function DashboardShell({
       });
   }
 
+  function handleMemberAdded(member: ShoppingMember, listShared: boolean) {
+    setLocalCurrentListMembers((previous) => {
+      const nextMembers = previous.some((entry) => entry.userId === member.userId)
+        ? previous.map((entry) => (entry.userId === member.userId ? member : entry))
+        : [...previous, member];
+
+      return sortMembers(nextMembers);
+    });
+
+    setLocalCurrentList((previous) => (previous ? { ...previous, shared: listShared || previous.shared } : previous));
+    setLocalLists((previous) =>
+      previous.map((entry) =>
+        entry.id === localCurrentList?.id
+          ? {
+              ...entry,
+              shared: listShared || entry.shared
+            }
+          : entry
+      )
+    );
+    setLocalCurrentListPendingInvites((previous) => previous.filter((invite) => invite.email.toLowerCase() !== (member.email ?? "").toLowerCase()));
+  }
+
+  function handlePendingInviteAdded(invite: ShoppingPendingInvite, listShared: boolean) {
+    setLocalCurrentListPendingInvites((previous) => {
+      const nextInvites = previous.filter((entry) => entry.email.toLowerCase() !== invite.email.toLowerCase());
+      return [invite, ...nextInvites];
+    });
+    setLocalCurrentList((previous) => (previous ? { ...previous, shared: listShared || previous.shared } : previous));
+    setLocalLists((previous) =>
+      previous.map((entry) =>
+        entry.id === localCurrentList?.id
+          ? {
+              ...entry,
+              shared: listShared || entry.shared
+            }
+          : entry
+      )
+    );
+  }
+
+  function handlePendingInviteRemoved(email: string) {
+    setLocalCurrentListPendingInvites((previous) => previous.filter((invite) => invite.email.toLowerCase() !== email.toLowerCase()));
+  }
+
   function handleSpaceCreated(space: ShoppingSpace) {
     setLocalSpaces((previous) => (previous.some((entry) => entry.id === space.id) ? previous : [space, ...previous]));
   }
@@ -1911,6 +2203,7 @@ export function DashboardShell({
               currentItemsCount={localItems.length}
               currentItems={localItems}
               currentListMembers={localCurrentListMembers}
+              currentListPendingInvites={localCurrentListPendingInvites}
               reusableLists={localLists.filter((list) => (list.itemCount ?? 0) > 0)}
               templates={localTemplates}
               spaces={localSpaces}
@@ -1924,6 +2217,9 @@ export function DashboardShell({
               onOptimisticListCreated={handleOptimisticListCreated}
               onListCreationFailed={handleListCreationFailed}
               onListJoined={handleListJoined}
+              onMemberAdded={handleMemberAdded}
+              onPendingInviteAdded={handlePendingInviteAdded}
+              onPendingInviteRemoved={handlePendingInviteRemoved}
             />
             {localCurrentList ? <CollaborationPanel listId={localCurrentList.id} items={localItems} members={localCurrentListMembers} /> : null}
             {localCurrentList ? (

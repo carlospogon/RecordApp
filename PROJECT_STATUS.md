@@ -1,6 +1,6 @@
 # RecordApp - Estado del proyecto
 
-Fecha de actualización: 5 de junio de 2026
+Fecha de actualización: 6 de junio de 2026
 
 ## Resumen ejecutivo
 
@@ -11,7 +11,10 @@ En este momento:
 - `Bloque 1` está cerrado.
 - `Bloque 2` está cerrado.
 - `Bloque 3` está cerrado y desplegado.
-- `Bloque 4` queda cerrado a nivel funcional.
+- `Bloque 4` está cerrado y publicado en `main`.
+- La desviación prioritaria de compartición dirigida y voz ya está resuelta a nivel funcional.
+- La versión visible actual del producto es `v1.9.0`.
+- La siguiente prioridad vuelve a ser `Bloque 5`.
 - Los bloques `5` a `8` siguen pendientes, pero el roadmap ya está refinado para incorporar predicción, gasto real, tickets, comparativas y alertas push.
 
 ## Lo ya hecho
@@ -56,6 +59,8 @@ Incluye:
 - Historial de releases visible dentro de la app.
 - Copy más cercano y orientado al usuario para comunicar novedades.
 - Versión actual ya reflejada en el producto con sus cambios principales.
+- Regla de release a partir de ahora: cada bloque que se suba a `main` debe ir acompañado de su `WhatsNew` actualizado.
+- Cada nueva versión debe explicar las mejoras funcionales del bloque y añadir al menos un caso de uso claro por cada funcionalidad nueva.
 
 ### Bloque 2: Compra operativa
 
@@ -85,6 +90,7 @@ Incluye:
 - Ajustes de mensajes para dar una sensación más precisa y profesional.
 - Corrección en `auth` para evitar que capas visuales interceptaran clicks.
 - Builds verificadas durante las entregas principales.
+- Regresiones funcionales ejecutadas en local antes de publicar bloques relevantes.
 
 ## Bloque 3 ya cerrado
 
@@ -157,6 +163,59 @@ Incluye:
 Resultado esperado:
 
 - Pasar de crear listas desde cero a crear listas casi hechas.
+
+Despliegue:
+
+- Publicado en `main`.
+- `WhatsNew` actualizado en `v1.9.0` con casos de uso por funcionalidad nueva.
+
+### Bloque prioritario: Comparticion dirigida y voz
+
+Estado: `hecho`
+
+Objetivo:
+
+- Reforzar la colaboracion real sobre listas existentes antes de abrir nuevas capas predictivas.
+
+Incluye:
+
+- Compartir listas normales con usuarios concretos.
+- Compartir listas de grupos con usuarios concretos.
+- El propietario de la lista puede añadir participantes.
+- Si el usuario añadido ya está registrado, debe recibir una notificación push.
+- Si el usuario añadido no está registrado, debe recibir un email de invitación.
+- El email de invitación debe mantener un tono cálido y amigable.
+- Copy base sugerido para invitación:
+  `¡Hola! {ownerName} te ha añadido a la lista «{listName}» en RecordApp. Puedes acceder desde aquí: {appLink}. RecordApp te ayuda a organizar tus compras de forma sencilla, compartida y sin complicaciones.`
+- Notas de voz en listas normales.
+- Notas de voz en listas de grupos.
+- El propietario o cualquier participante puede añadir notas de voz.
+- La app debe transcribir la nota de voz.
+- El texto transcrito debe añadirse automáticamente a la lista.
+
+Implementacion incremental recomendada:
+
+- Fase 1: permitir añadir participantes por email o usuario desde una lista existente reutilizando permisos y capa push actual.
+- Fase 2: enviar invitación push a usuarios registrados y email a invitados no registrados con enlace directo a la app.
+- Fase 3: añadir captura de audio en lista activa y transcripción a texto antes de crear los items, evitando cambios agresivos en el modelo visual.
+- Fase 4: extender la misma experiencia a listas de grupo con la misma semántica de permisos.
+
+Resultado esperado:
+
+- Listas más fáciles de compartir sin fricción y entrada de productos más rápida cuando escribir sea incómodo.
+
+Estado funcional real entregado:
+
+- Añadir participantes registrados a listas por email.
+- Envío de `push` cuando el usuario invitado ya existe.
+- Envío de email cálido cuando el usuario todavía no está registrado.
+- Enlace de invitación conectado con `auth` y unión automática a la lista.
+- Gestión visible de invitaciones pendientes con reenvío y cancelación.
+- Soporte para listas normales y listas de grupo usando la misma capa de lista compartida.
+- Notas de voz desde la lista activa.
+- Transcripción automática en cliente usando reconocimiento de voz del navegador.
+- Conversión automática de la transcripción en productos de la lista.
+- Heurística inicial para extraer cantidad y unidad en frases simples como `dos litros de leche` o `una docena de huevos`.
 
 ### Bloque 5: Inteligencia predictiva
 
@@ -276,19 +335,34 @@ Aplicación prevista:
 
 ## Orden recomendado a partir de aquí
 
-1. Pasar a `Bloque 4` para activar repetición inteligente.
-2. Continuar con `Bloque 5` para abrir la capa predictiva.
-3. Pasar después a `Bloque 8` para introducir tickets, gasto real y comparativas.
-4. Abrir `Bloque 6` con inventario ya apoyado en historial y compras reales.
-5. Cerrar después `Bloque 7` con caducidades y consumo prioritario.
+1. Continuar con `Bloque 5` para abrir la capa predictiva.
+2. Pasar después a `Bloque 8` para introducir tickets, gasto real y comparativas.
+3. Abrir `Bloque 6` con inventario ya apoyado en historial y compras reales.
+4. Cerrar después `Bloque 7` con caducidades y consumo prioritario.
+
+## Regla de publicación
+
+- Cada bloque que se suba a `main` debe llevar su `WhatsNew` actualizado antes del push final.
+- Cada nueva versión debe explicar las mejoras funcionales reales del bloque publicado.
+- Cada mejora nueva incluida en `WhatsNew` debe ir acompañada de al menos un caso de uso claro para el usuario.
+- Antes de empujar a `main`, conviene validar el flujo en local y dejar `PROJECT_STATUS.md` alineado con el estado real del producto.
 
 ## Estado global actual
 
 - `Bloque 1`: hecho
 - `Bloque 2`: hecho
 - `Bloque 3`: hecho
-- `Bloque 4`: pendiente
+- `Bloque 4`: hecho
+- `Bloque prioritario - Comparticion dirigida y voz`: hecho
 - `Bloque 5`: pendiente
 - `Bloque 6`: pendiente
 - `Bloque 7`: pendiente
 - `Bloque 8`: pendiente
+
+## Estado de release actual
+
+- Rama de funcionalidad publicada para `Bloque 4`: `func/block-4-smart-repetition`
+- `Bloque 4` integrado en `main`
+- Commit funcional de cierre de bloque: `bb9d458`
+- Commit de actualización de `WhatsNew`: `653009a`
+- Release visible actual: `v1.9.0`

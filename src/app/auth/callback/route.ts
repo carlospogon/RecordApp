@@ -5,7 +5,8 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const errorDescription = requestUrl.searchParams.get("error_description");
-  const redirectTo = new URL("/app", requestUrl.origin);
+  const nextPath = requestUrl.searchParams.get("next");
+  const redirectTo = new URL(nextPath && nextPath.startsWith("/") ? nextPath : "/app", requestUrl.origin);
 
   if (errorDescription) {
     redirectTo.pathname = "/auth";

@@ -45,11 +45,18 @@ function AuthStateMessage({ state }: { state: AuthActionState }) {
   return null;
 }
 
-export function AuthForms({ initialMode = "signin" }: { initialMode?: "signin" | "signup" }) {
+export function AuthForms({
+  initialMode = "signin",
+  inviteCode = ""
+}: {
+  initialMode?: "signin" | "signup";
+  inviteCode?: string;
+}) {
   const [mode, setMode] = useState<"signin" | "signup">(initialMode);
   const [signInState, signInFormAction, signInPending] = useActionState(signInAction, initialAuthActionState);
   const [signUpState, signUpFormAction, signUpPending] = useActionState(signUpAction, initialAuthActionState);
   const isSignIn = mode === "signin";
+  const redirectPath = inviteCode ? `/app?invite=${encodeURIComponent(inviteCode)}` : "/app";
 
   return (
     <section className={`rounded-[32px] border border-white/60 bg-[rgba(255,255,255,0.82)] p-6 backdrop-blur-[22px] shadow-[0_30px_70px_rgba(74,97,80,0.10)] sm:p-8 ${bodyFont.className}`}>
@@ -75,6 +82,7 @@ export function AuthForms({ initialMode = "signin" }: { initialMode?: "signin" |
       </div>
 
       <form action={isSignIn ? signInFormAction : signUpFormAction} className="mt-6 space-y-4">
+        <input type="hidden" name="redirectPath" value={redirectPath} />
         <div className="space-y-2">
           <label htmlFor="email" className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6d766e]">
             Email
@@ -108,6 +116,7 @@ export function AuthForms({ initialMode = "signin" }: { initialMode?: "signin" |
 
       <div className="mt-6 border-t border-[#eee7db] pt-6">
         <form action={signInWithGoogleAction}>
+          <input type="hidden" name="redirectPath" value={redirectPath} />
           <button
             type="submit"
             className={`${displayFont.className} w-full rounded-full border border-[#ebe3d2] bg-[rgba(255,255,255,0.88)] px-5 py-4 text-base font-semibold text-[#4f574f] transition hover:border-[#4a6150] hover:text-[#4a6150]`}

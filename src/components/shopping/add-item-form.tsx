@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { inferCategoryFromNormalizedName } from "@/lib/shopping/product-category-inference";
 import { normalizeProductName } from "@/lib/shopping/normalize-product";
 import { ProductCatalogItem, ShoppingDuplicateNotice, ShoppingItem, ShoppingMember } from "@/types/shopping";
@@ -18,6 +18,89 @@ type AddItemFormProps = {
 type CreateItemResponse = {
   item: ShoppingItem;
 };
+
+type SpeechRecognitionResultLike = {
+  0: {
+    transcript: string;
+  };
+};
+
+type SpeechRecognitionEventLike = {
+  resultIndex: number;
+  results: SpeechRecognitionResultLike[];
+};
+
+type SpeechRecognitionLike = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
+
+const spokenNumberMap: Record<string, string> = {
+  un: "1",
+  una: "1",
+  uno: "1",
+  dos: "2",
+  tres: "3",
+  cuatro: "4",
+  cinco: "5",
+  seis: "6",
+  siete: "7",
+  ocho: "8",
+  nueve: "9",
+  diez: "10",
+  media: "0.5"
+};
+
+const knownVoiceUnits = new Set([
+  "kg",
+  "kilo",
+  "kilos",
+  "g",
+  "gramo",
+  "gramos",
+  "l",
+  "litro",
+  "litros",
+  "ml",
+  "docena",
+  "docenas",
+  "unidad",
+  "unidades",
+  "uds",
+  "ud",
+  "paquete",
+  "paquetes",
+  "bolsa",
+  "bolsas",
+  "bote",
+  "botes",
+  "botella",
+  "botellas",
+  "barra",
+  "barras",
+  "lata",
+  "latas",
+  "pack",
+  "caja",
+  "cajas",
+  "bandeja",
+  "bandejas"
+]);
 
 function formatDate(value?: string) {
   if (!value) {
@@ -50,6 +133,10 @@ export function AddItemForm({
   const [success, setSuccess] = useState<string | null>(null);
   const [duplicateNotice, setDuplicateNotice] = useState<ShoppingDuplicateNotice | null>(null);
   const [createdItemId, setCreatedItemId] = useState<string | null>(null);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [voiceListening, setVoiceListening] = useState(false);
+  const [voiceDraft, setVoiceDraft] = useState("");
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const normalizedInput = useMemo(() => normalizeProductName(name), [name]);
   const selectedProduct = useMemo(() => availableProducts.find((product) => product.normalizedName === normalizedInput), [availableProducts, normalizedInput]);
   const filteredSuggestions = useMemo(() => {
@@ -81,26 +168,100 @@ export function AddItemForm({
     return [...new Set(assigneeNames)];
   }, [duplicateItemsInCurrentList, members]);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    setSuccess(null);
-
-    if (!listReady) {
-      setError("La lista se está preparando todavía. Espera un instante.");
+  useEffect(() => {
+    if (typeof window === "undefined") {
       return;
     }
 
+    setVoiceSupported(Boolean(window.SpeechRecognition || window.webkitSpeechRecognition));
+  }, []);
+
+  function splitVoiceTranscript(transcript: string) {
+    return [
+      ...new Set(
+        transcript
+          .replace(/\s+y\s+/gi, ", ")
+          .replace(/[.;\n]+/g, ",")
+          .split(",")
+          .map((entry) => entry.trim())
+          .filter(Boolean)
+      )
+    ];
+  }
+
+  function parseVoiceItem(rawValue: string) {
+    const cleanedValue = rawValue
+      .trim()
+      .replace(/\bde el\b/gi, "del")
+      .replace(/\s+/g, " ");
+    const tokens = cleanedValue.split(" ").filter(Boolean);
+
+    if (tokens.length === 0) {
+      return { name: "" };
+    }
+
+    let quantityToken = "";
+    let unitToken = "";
+    let nameStartIndex = 0;
+
+    const firstToken = tokens[0]?.toLowerCase() ?? "";
+
+    if (/^\d+([.,]\d+)?$/.test(firstToken)) {
+      quantityToken = firstToken.replace(",", ".");
+      nameStartIndex = 1;
+    } else if (spokenNumberMap[firstToken]) {
+      quantityToken = spokenNumberMap[firstToken];
+      nameStartIndex = 1;
+    }
+
+    const candidateUnit = tokens[nameStartIndex]?.toLowerCase() ?? "";
+
+    if (candidateUnit && knownVoiceUnits.has(candidateUnit)) {
+      unitToken = candidateUnit;
+      nameStartIndex += 1;
+    }
+
+    let parsedName = tokens.slice(nameStartIndex).join(" ").trim();
+    parsedName = parsedName.replace(/^(de|del|la|el|los|las)\s+/i, "").trim();
+
+    if (!parsedName) {
+      parsedName = cleanedValue;
+      quantityToken = "";
+      unitToken = "";
+    }
+
+    return {
+      name: parsedName,
+      quantity: quantityToken || undefined,
+      unit: unitToken || undefined
+    };
+  }
+
+  async function createItemWithOptimistic(fields: { name: string; quantity?: string; unit?: string; notes?: string }) {
+    const nextName = fields.name.trim();
+
+    if (!nextName) {
+      return { ok: false as const };
+    }
+
+    const nextNormalizedName = normalizeProductName(nextName);
+    const matchedProduct = availableProducts.find((product) => product.normalizedName === nextNormalizedName) ?? null;
+    const matchedSection =
+      matchedProduct?.category && matchedProduct.category !== "otros"
+        ? matchedProduct.category
+        : nextNormalizedName
+          ? inferCategoryFromNormalizedName(nextNormalizedName)
+          : "otros";
     const itemId = crypto.randomUUID();
     const optimisticItem: ShoppingItem = {
       id: itemId,
       listId,
-      name,
-      normalizedName: selectedProduct?.normalizedName ?? normalizedInput,
-      quantity: quantity || null,
-      unit: unit || selectedProduct?.defaultUnit || null,
-      section: inferredSection ?? "otros",
-      notes: notes || null,
+      name: nextName,
+      normalizedName: matchedProduct?.normalizedName ?? nextNormalizedName,
+      quantity: fields.quantity?.trim() || null,
+      unit: fields.unit?.trim() || matchedProduct?.defaultUnit || null,
+      section: matchedSection ?? "otros",
+      notes: fields.notes?.trim() || null,
       status: "pending",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -108,56 +269,168 @@ export function AddItemForm({
     };
 
     onOptimisticItemCreated?.(optimisticItem);
+
+    try {
+      const response = await fetch("/api/items", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          id: itemId,
+          listId,
+          productId: matchedProduct?.id ?? "",
+          name: nextName,
+          quantity: fields.quantity?.trim() ?? "",
+          unit: fields.unit?.trim() || matchedProduct?.defaultUnit || "",
+          notes: fields.notes?.trim() ?? ""
+        })
+      });
+
+      const payload = (await response.json()) as Partial<CreateItemResponse> & { error?: string };
+
+      if (!response.ok || !payload.item) {
+        throw new Error(payload.error || "No se pudo guardar el producto.");
+      }
+
+      onItemCreated?.(payload.item);
+      return { ok: true as const, item: payload.item };
+    } catch {
+      onItemDeleted?.(itemId);
+      return { ok: false as const };
+    }
+  }
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    if (!listReady) {
+      setError("La lista se estÃ¡ preparando todavÃ­a. Espera un instante.");
+      return;
+    }
+
+    const formName = name;
+    const formQuantity = quantity;
+    const formUnit = unit;
+    const formNotes = notes;
     setName("");
     setQuantity("");
     setUnit("");
     setNotes("");
 
     startTransition(async () => {
-      try {
-        const response = await fetch("/api/items", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            id: itemId,
-            listId,
-            productId: selectedProduct?.id ?? "",
-            name,
-            quantity,
-            unit: unit || selectedProduct?.defaultUnit || "",
-            notes
-          })
+      const result = await createItemWithOptimistic({
+        name: formName,
+        quantity: formQuantity,
+        unit: formUnit,
+        notes: formNotes
+      });
+
+      if (!result.ok) {
+        setError("No se pudo guardar el producto.");
+        return;
+      }
+
+      setCreatedItemId(result.item.id);
+      setSuccess("Producto aÃ±adido.");
+
+      fetch(`/api/items/duplicate?name=${encodeURIComponent(result.item.name)}`)
+        .then((duplicateResponse) => (duplicateResponse.ok ? duplicateResponse.json() : null))
+        .then((duplicatePayload) => {
+          if (duplicatePayload?.duplicateNotice) {
+            setDuplicateNotice(duplicatePayload.duplicateNotice as ShoppingDuplicateNotice);
+          } else {
+            setDuplicateNotice(null);
+          }
+        })
+        .catch(() => {
+          setDuplicateNotice(null);
         });
+    });
+  }
 
-        const payload = (await response.json()) as Partial<CreateItemResponse> & { error?: string };
+  function handleVoiceCapture() {
+    if (typeof window === "undefined") {
+      return;
+    }
 
-        if (!response.ok || !payload.item) {
-          throw new Error(payload.error || "No se pudo guardar el producto.");
+    if (voiceListening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!Recognition) {
+      setError("Este navegador no soporta transcripciÃ³n de voz.");
+      return;
+    }
+
+    const recognition = new Recognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = "es-ES";
+    recognitionRef.current = recognition;
+    setVoiceDraft("");
+    setError(null);
+    setSuccess(null);
+    setVoiceListening(true);
+
+    let latestTranscript = "";
+
+    recognition.onresult = (event) => {
+      let nextTranscript = "";
+
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        nextTranscript += event.results[index]?.[0]?.transcript ?? "";
+      }
+
+      latestTranscript = nextTranscript.trim();
+      setVoiceDraft(latestTranscript);
+    };
+
+    recognition.onerror = () => {
+      setVoiceListening(false);
+      setError("No hemos podido entender la nota de voz. Inténtalo otra vez.");
+    };
+
+    recognition.onend = () => {
+      setVoiceListening(false);
+
+      if (!latestTranscript) {
+        return;
+      }
+
+      const detectedItems = splitVoiceTranscript(latestTranscript);
+
+      startTransition(async () => {
+        let createdCount = 0;
+
+        for (const detectedItem of detectedItems) {
+          const parsedItem = parseVoiceItem(detectedItem);
+          const result = await createItemWithOptimistic(parsedItem);
+          if (result.ok) {
+            createdCount += 1;
+          }
         }
 
-        onItemCreated?.(payload.item);
-        setCreatedItemId(payload.item.id);
-        setSuccess("Producto añadido.");
+        if (createdCount > 0) {
+          setSuccess(
+            createdCount === 1
+              ? `Nota transcrita y 1 producto añadido: ${detectedItems[0]}.`
+              : `Nota transcrita y ${createdCount} productos añadidos desde voz.`
+          );
+        } else {
+          setError("La nota se transcribió, pero no pudimos añadir productos válidos.");
+        }
 
-        fetch(`/api/items/duplicate?name=${encodeURIComponent(payload.item.name)}`)
-          .then((duplicateResponse) => (duplicateResponse.ok ? duplicateResponse.json() : null))
-          .then((duplicatePayload) => {
-            if (duplicatePayload?.duplicateNotice) {
-              setDuplicateNotice(duplicatePayload.duplicateNotice as ShoppingDuplicateNotice);
-            } else {
-              setDuplicateNotice(null);
-            }
-          })
-          .catch(() => {
-            setDuplicateNotice(null);
-          });
-      } catch (submitError) {
-        onItemDeleted?.(itemId);
-        setError(submitError instanceof Error ? submitError.message : "No se pudo guardar el producto.");
-      }
-    });
+        setVoiceDraft("");
+      });
+    };
+
+    recognition.start();
   }
 
   async function handleDeleteFreshItem() {
@@ -191,8 +464,32 @@ export function AddItemForm({
     <div className="grid gap-4 rounded-[26px] border border-[var(--border)] bg-[rgba(250,249,246,0.9)] p-5">
       <form onSubmit={handleSubmit} className="grid gap-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Añadir producto</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">AÃ±adir producto</p>
           <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">Rellena la lista activa</h3>
+        </div>
+
+        <div className="rounded-[22px] border border-[var(--border)] bg-white p-4 shadow-[0_10px_24px_rgba(18,40,28,0.05)]">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-[var(--text)]">Nota de voz</p>
+              <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+                Di productos separados por pausas o por "y". RecordApp intentará transcribirlos y añadirlos automáticamente.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleVoiceCapture}
+              disabled={pending || !listReady || !voiceSupported}
+              className="rounded-full border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-2.5 text-sm font-semibold text-[var(--accent-strong)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {!voiceSupported ? "Voz no disponible" : voiceListening ? "Detener grabación" : "Añadir por voz"}
+            </button>
+          </div>
+          {voiceDraft ? (
+            <div className="mt-3 rounded-[18px] bg-[var(--surface-soft)] px-4 py-3 text-sm text-[var(--text)]">
+              <span className="font-semibold text-[var(--accent-strong)]">Transcribiendo:</span> {voiceDraft}
+            </div>
+          ) : null}
         </div>
 
         <div className="grid gap-3">

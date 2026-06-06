@@ -10,6 +10,21 @@ export const developerSignature = "A CPG Dynamics Product";
 
 export const appReleaseNotes: AppReleaseNote[] = [
   {
+    version: "1.10.0",
+    title: "Directed Sharing And Voice Capture",
+    releaseDate: "2026-06-06",
+    summary:
+      "Hola. En esta version RecordApp da un paso importante para que compartir compras reales sea mas simple. Ahora puedes anadir personas concretas a tus listas, invitar por email a quien todavia no usa la app y convertir notas de voz en productos listos para comprar tanto en listas normales como en listas de grupo.",
+    highlights: [
+      "Ya puedes anadir a una persona registrada directamente a una lista por email. Caso de uso: si tu pareja ya usa RecordApp, la sumas a la compra semanal en segundos sin compartir codigos manuales.",
+      "Si el email todavia no esta registrado, RecordApp envia una invitacion amable con enlace directo a la app. Caso de uso: si quieres incorporar a un familiar o companero nuevo, puede entrar desde el correo y caer en la lista correcta.",
+      "Las invitaciones pendientes ya se pueden ver, reenviar y cancelar desde la propia lista. Caso de uso: si te equivocas de correo o alguien no vio el primer mensaje, lo corriges sin salir del flujo de compra.",
+      "La comparticion dirigida tambien funciona sobre listas que viven dentro de grupos. Caso de uso: si compartes compras por casa, oficina o piso compartido, invitas a cada persona concreta sin romper la estructura del espacio.",
+      "Ahora puedes dictar una nota de voz y convertirla en productos automaticamente. Caso de uso: si se te ocurren varias cosas mientras caminas o conduces, las dices una vez y la lista queda creada sin teclear.",
+      "La transcripcion intenta extraer cantidades y unidades basicas al vuelo. Caso de uso: si dices 'dos litros de leche y una docena de huevos', RecordApp intenta guardar esos productos de forma mas util desde el primer momento."
+    ]
+  },
+  {
     version: "1.9.0",
     title: "Smart Repetition And Templates",
     releaseDate: "2026-06-06",

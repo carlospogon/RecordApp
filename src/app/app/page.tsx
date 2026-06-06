@@ -22,10 +22,11 @@ function getInitials(name: string) {
 export default async function AppPage({
   searchParams
 }: {
-  searchParams?: Promise<{ list?: string; tab?: string }>;
+  searchParams?: Promise<{ list?: string; tab?: string; invite?: string }>;
 }) {
   const params = (await searchParams) ?? {};
   const selectedListId = typeof params.list === "string" ? params.list : null;
+  const pendingInviteCode = typeof params.invite === "string" ? params.invite.trim().toUpperCase() : null;
   const activeTab =
     typeof params.tab === "string" &&
     ["lista", "historial", "sugerencias", "analisis", "resumen"].includes(params.tab)
@@ -121,6 +122,7 @@ export default async function AppPage({
             selectedListId={data.selectedListId}
             activeTab={activeTab}
             pushPublicKey={env.NEXT_PUBLIC_VAPID_PUBLIC_KEY}
+            pendingInviteCode={pendingInviteCode}
           />
       </div>
     </main>

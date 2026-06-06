@@ -65,6 +65,17 @@ export async function POST(request: Request) {
     }
   }
 
+  if (user.email) {
+    await admin
+      .from("shopping_list_email_invites")
+      .update({
+        status: "accepted",
+        accepted_at: new Date().toISOString()
+      })
+      .eq("list_id", list.id)
+      .eq("email", user.email.trim().toLowerCase());
+  }
+
   await admin.from("shopping_lists").update({ shared: true }).eq("id", list.id);
 
   return NextResponse.json({
