@@ -400,6 +400,7 @@ function FlowCard({
   currentItems,
   currentListMembers,
   currentListPendingInvites,
+  allLists,
   reusableLists,
   templates,
   spaces,
@@ -422,6 +423,7 @@ function FlowCard({
   currentItems: ShoppingItem[];
   currentListMembers: ShoppingMember[];
   currentListPendingInvites: ShoppingPendingInvite[];
+  allLists: ShoppingList[];
   reusableLists: ShoppingList[];
   templates: ShoppingListTemplate[];
   spaces: ShoppingSpace[];
@@ -452,10 +454,48 @@ function FlowCard({
   const [participantPending, setParticipantPending] = useState(false);
   const [pendingInviteActionEmail, setPendingInviteActionEmail] = useState<string | null>(null);
   const [copiedInviteEmail, setCopiedInviteEmail] = useState<string | null>(null);
+  const sharedWithYouLists = useMemo(
+    () =>
+      allLists
+        .filter((list) => list.accessRole === "editor")
+        .sort((listA, listB) => new Date(listB.updatedAt).getTime() - new Date(listA.updatedAt).getTime())
+        .slice(0, 4),
+    [allLists]
+  );
 
   if (!currentList) {
     return (
       <section className="rounded-[28px] border border-[rgba(115,121,114,0.16)] bg-[rgba(255,255,255,0.78)] p-5 shadow-[0_18px_36px_rgba(74,97,80,0.08)] backdrop-blur-[14px]">
+        {sharedWithYouLists.length > 0 ? (
+          <div className="mb-5 rounded-[26px] border border-[rgba(112,150,130,0.16)] bg-[rgba(238,243,239,0.84)] p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Compartidas contigo</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--text)]">Ya tienes listas a las que puedes entrar</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+              Estas listas ya han sido compartidas contigo. Puedes abrirlas directamente desde aqui aunque no hayas recibido push.
+            </p>
+            <div className="mt-4 grid gap-3">
+              {sharedWithYouLists.map((list) => (
+                <article key={list.id} className="rounded-[22px] border border-[var(--border)] bg-white p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--text)]">{list.title}</p>
+                      <p className="mt-1 text-sm text-[var(--muted)]">
+                        {formatDate(list.shoppingDate)} · {list.itemCount ?? 0} productos
+                        {list.spaceName ? ` · ${list.spaceName}` : ""}
+                      </p>
+                    </div>
+                    <Link
+                      href={`/app?list=${list.id}&tab=lista`}
+                      className="rounded-full border border-[var(--accent)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)] transition hover:bg-[var(--accent-soft)]"
+                    >
+                      Abrir lista
+                    </Link>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div className="mb-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Paso 1</p>
           <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--text)]">Crea tu primera lista</h2>
@@ -2185,6 +2225,7 @@ export function DashboardShell({
               currentItems={localItems}
               currentListMembers={localCurrentListMembers}
               currentListPendingInvites={localCurrentListPendingInvites}
+              allLists={localLists}
               reusableLists={localLists.filter((list) => (list.itemCount ?? 0) > 0)}
               templates={localTemplates}
               spaces={localSpaces}
