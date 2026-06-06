@@ -10,6 +10,20 @@ export const developerSignature = "A CPG Dynamics Product";
 
 export const appReleaseNotes: AppReleaseNote[] = [
   {
+    version: "1.10.1",
+    title: "Sharing And Voice Hotfix",
+    releaseDate: "2026-06-06",
+    summary:
+      "Hola. En esta version hemos cerrado varios ajustes importantes para que compartir listas y usar notas de voz se sienta estable tambien en produccion. Hemos corregido el cierre de sesion, el acceso real de participantes a listas compartidas, la persistencia de invitaciones manuales y el bloqueo que podia aparecer al reutilizar la voz varias veces seguidas.",
+    highlights: [
+      "Cerrar sesion vuelve a funcionar correctamente. Caso de uso: si terminas una compra en un dispositivo compartido, ahora puedes salir de la app y volver a la portada sin quedarte atrapado dentro del panel.",
+      "Los usuarios registrados anadidos a una lista ya pueden abrirla de verdad. Caso de uso: si invitas a otra persona por email y ya tiene cuenta, ahora entra en la lista compartida en lugar de caer en una vista vacia.",
+      "Las invitaciones manuales a usuarios no registrados ya permanecen en Pendientes tras recargar. Caso de uso: si copias un enlace para compartirlo mas tarde, sigues viendo esa invitacion y puedes reenviarla o cancelarla despues.",
+      "Las notas de voz ya se pueden usar varias veces seguidas sin bloquear el boton. Caso de uso: si recuerdas productos en varios momentos distintos, puedes dictarlos por tandas sin tener que recargar la pantalla.",
+      "La transcripcion de voz separa mejor cantidades, unidades y producto. Caso de uso: al decir 'dos litros de leche' o 'una docena de huevos', la lista conserva mejor la estructura util de la compra."
+    ]
+  },
+  {
     version: "1.10.0",
     title: "Directed Sharing And Voice Capture",
     releaseDate: "2026-06-06",

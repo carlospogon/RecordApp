@@ -294,17 +294,25 @@ export async function POST(request: Request, context: RouteContext) {
   await admin.from("shopping_lists").update({ shared: true }).eq("id", id);
 
   if (!existingMembership?.user_id && targetUser.id !== user.id) {
-    void sendPushNotificationToUsers([targetUser.id], {
+    const pushResult = await sendPushNotificationToUsers([targetUser.id], {
       title: "RecordApp",
       body: `${actorDisplayName} te ha anadido a ${listTitle}.`,
       url: `/app?list=${id}&tab=lista`
-    }).catch(() => undefined);
+    }).catch(() => ({ sent: 0 }));
+
+    return NextResponse.json({
+      member,
+      added: !existingMembership?.user_id,
+      listShared: true,
+      pushSent: (pushResult?.sent ?? 0) > 0
+    });
   }
 
   return NextResponse.json({
     member,
     added: !existingMembership?.user_id,
-    listShared: true
+    listShared: true,
+    pushSent: false
   });
 }
 
