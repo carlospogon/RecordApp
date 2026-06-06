@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { inferCategoryFromNormalizedName } from "@/lib/shopping/product-category-inference";
 import { normalizeProductName } from "@/lib/shopping/normalize-product";
 import { ProductCatalogItem, ShoppingDuplicateNotice, ShoppingItem, ShoppingMember } from "@/types/shopping";
@@ -51,6 +51,7 @@ declare global {
 }
 
 const spokenNumberMap: Record<string, string> = {
+  media: "0.5",
   un: "1",
   una: "1",
   uno: "1",
@@ -62,45 +63,11 @@ const spokenNumberMap: Record<string, string> = {
   siete: "7",
   ocho: "8",
   nueve: "9",
-  diez: "10",
-  media: "0.5"
+  diez: "10"
 };
 
-const knownVoiceUnits = new Set([
-  "kg",
-  "kilo",
-  "kilos",
-  "g",
-  "gramo",
-  "gramos",
-  "l",
-  "litro",
-  "litros",
-  "ml",
-  "docena",
-  "docenas",
-  "unidad",
-  "unidades",
-  "uds",
-  "ud",
-  "paquete",
-  "paquetes",
-  "bolsa",
-  "bolsas",
-  "bote",
-  "botes",
-  "botella",
-  "botellas",
-  "barra",
-  "barras",
-  "lata",
-  "latas",
-  "pack",
-  "caja",
-  "cajas",
-  "bandeja",
-  "bandejas"
-]);
+const unitPattern =
+  /^(kg|kilo|kilos|g|gramo|gramos|l|litro|litros|ml|docena|docenas|unidad|unidades|uds|ud|paquete|paquetes|bolsa|bolsas|bote|botes|botella|botellas|barra|barras|lata|latas|pack|caja|cajas|bandeja|bandejas)\b/i;
 
 function formatDate(value?: string) {
   if (!value) {
@@ -123,20 +90,23 @@ export function AddItemForm({
   onOptimisticItemCreated,
   onItemDeleted
 }: AddItemFormProps) {
-  const [pending, startTransition] = useTransition();
   const availableProducts = useMemo(() => catalogProducts.filter((product) => product.active !== false), [catalogProducts]);
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("");
   const [notes, setNotes] = useState("");
+  const [submitPending, setSubmitPending] = useState(false);
+  const [deletePending, setDeletePending] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [voiceListening, setVoiceListening] = useState(false);
+  const [voiceProcessing, setVoiceProcessing] = useState(false);
+  const [voiceDraft, setVoiceDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [duplicateNotice, setDuplicateNotice] = useState<ShoppingDuplicateNotice | null>(null);
   const [createdItemId, setCreatedItemId] = useState<string | null>(null);
-  const [voiceSupported, setVoiceSupported] = useState(false);
-  const [voiceListening, setVoiceListening] = useState(false);
-  const [voiceDraft, setVoiceDraft] = useState("");
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+
   const normalizedInput = useMemo(() => normalizeProductName(name), [name]);
   const selectedProduct = useMemo(() => availableProducts.find((product) => product.normalizedName === normalizedInput), [availableProducts, normalizedInput]);
   const filteredSuggestions = useMemo(() => {
@@ -156,6 +126,7 @@ export function AddItemForm({
     return normalizedInput ? inferCategoryFromNormalizedName(normalizedInput) : null;
   }, [normalizedInput, selectedProduct]);
   const listReady = !listId.startsWith("temp-list-");
+  const pending = submitPending || deletePending || voiceProcessing;
   const duplicateItemsInCurrentList = useMemo(
     () => (normalizedInput ? currentItems.filter((item) => item.normalizedName === normalizedInput) : []),
     [currentItems, normalizedInput]
@@ -194,34 +165,30 @@ export function AddItemForm({
       .trim()
       .replace(/\bde el\b/gi, "del")
       .replace(/\s+/g, " ");
-    const tokens = cleanedValue.split(" ").filter(Boolean);
 
-    if (tokens.length === 0) {
+    if (!cleanedValue) {
       return { name: "" };
     }
 
     let quantityToken = "";
     let unitToken = "";
-    let nameStartIndex = 0;
+    let parsedName = cleanedValue;
 
-    const firstToken = tokens[0]?.toLowerCase() ?? "";
+    const quantityMatch = parsedName.match(/^(\d+(?:[.,]\d+)?|media|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/i);
 
-    if (/^\d+([.,]\d+)?$/.test(firstToken)) {
-      quantityToken = firstToken.replace(",", ".");
-      nameStartIndex = 1;
-    } else if (spokenNumberMap[firstToken]) {
-      quantityToken = spokenNumberMap[firstToken];
-      nameStartIndex = 1;
+    if (quantityMatch) {
+      const rawQuantity = quantityMatch[1].toLowerCase();
+      quantityToken = spokenNumberMap[rawQuantity] ?? rawQuantity.replace(",", ".");
+      parsedName = parsedName.slice(quantityMatch[0].length).trim();
     }
 
-    const candidateUnit = tokens[nameStartIndex]?.toLowerCase() ?? "";
+    const parsedUnitMatch = parsedName.match(unitPattern);
 
-    if (candidateUnit && knownVoiceUnits.has(candidateUnit)) {
-      unitToken = candidateUnit;
-      nameStartIndex += 1;
+    if (parsedUnitMatch) {
+      unitToken = parsedUnitMatch[1].toLowerCase();
+      parsedName = parsedName.slice(parsedUnitMatch[0].length).trim();
     }
 
-    let parsedName = tokens.slice(nameStartIndex).join(" ").trim();
     parsedName = parsedName.replace(/^(de|del|la|el|los|las)\s+/i, "").trim();
 
     if (!parsedName) {
@@ -301,13 +268,28 @@ export function AddItemForm({
     }
   }
 
+  async function refreshDuplicateNotice(itemName: string) {
+    fetch(`/api/items/duplicate?name=${encodeURIComponent(itemName)}`)
+      .then((duplicateResponse) => (duplicateResponse.ok ? duplicateResponse.json() : null))
+      .then((duplicatePayload) => {
+        if (duplicatePayload?.duplicateNotice) {
+          setDuplicateNotice(duplicatePayload.duplicateNotice as ShoppingDuplicateNotice);
+        } else {
+          setDuplicateNotice(null);
+        }
+      })
+      .catch(() => {
+        setDuplicateNotice(null);
+      });
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setSuccess(null);
 
     if (!listReady) {
-      setError("La lista se estÃ¡ preparando todavÃ­a. Espera un instante.");
+      setError("La lista se esta preparando todavia. Espera un instante.");
       return;
     }
 
@@ -319,8 +301,9 @@ export function AddItemForm({
     setQuantity("");
     setUnit("");
     setNotes("");
+    setSubmitPending(true);
 
-    startTransition(async () => {
+    try {
       const result = await createItemWithOptimistic({
         name: formName,
         quantity: formQuantity,
@@ -334,21 +317,11 @@ export function AddItemForm({
       }
 
       setCreatedItemId(result.item.id);
-      setSuccess("Producto aÃ±adido.");
-
-      fetch(`/api/items/duplicate?name=${encodeURIComponent(result.item.name)}`)
-        .then((duplicateResponse) => (duplicateResponse.ok ? duplicateResponse.json() : null))
-        .then((duplicatePayload) => {
-          if (duplicatePayload?.duplicateNotice) {
-            setDuplicateNotice(duplicatePayload.duplicateNotice as ShoppingDuplicateNotice);
-          } else {
-            setDuplicateNotice(null);
-          }
-        })
-        .catch(() => {
-          setDuplicateNotice(null);
-        });
-    });
+      setSuccess("Producto anadido.");
+      await refreshDuplicateNotice(result.item.name);
+    } finally {
+      setSubmitPending(false);
+    }
   }
 
   function handleVoiceCapture() {
@@ -364,7 +337,7 @@ export function AddItemForm({
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!Recognition) {
-      setError("Este navegador no soporta transcripciÃ³n de voz.");
+      setError("Este navegador no soporta transcripcion de voz.");
       return;
     }
 
@@ -393,41 +366,49 @@ export function AddItemForm({
 
     recognition.onerror = () => {
       setVoiceListening(false);
-      setError("No hemos podido entender la nota de voz. Inténtalo otra vez.");
+      setVoiceProcessing(false);
+      recognitionRef.current = null;
+      setError("No hemos podido entender la nota de voz. Intentalo otra vez.");
     };
 
     recognition.onend = () => {
       setVoiceListening(false);
+      recognitionRef.current = null;
 
       if (!latestTranscript) {
         return;
       }
 
       const detectedItems = splitVoiceTranscript(latestTranscript);
+      setVoiceProcessing(true);
 
-      startTransition(async () => {
+      void (async () => {
         let createdCount = 0;
 
         for (const detectedItem of detectedItems) {
           const parsedItem = parseVoiceItem(detectedItem);
           const result = await createItemWithOptimistic(parsedItem);
+
           if (result.ok) {
             createdCount += 1;
+            setCreatedItemId(result.item.id);
           }
         }
 
         if (createdCount > 0) {
           setSuccess(
             createdCount === 1
-              ? `Nota transcrita y 1 producto añadido: ${detectedItems[0]}.`
-              : `Nota transcrita y ${createdCount} productos añadidos desde voz.`
+              ? `Nota transcrita y 1 producto anadido: ${detectedItems[0]}.`
+              : `Nota transcrita y ${createdCount} productos anadidos desde voz.`
           );
+          await refreshDuplicateNotice(detectedItems[0] ?? "");
         } else {
-          setError("La nota se transcribió, pero no pudimos añadir productos válidos.");
+          setError("La nota se transcribio, pero no pudimos anadir productos validos.");
         }
 
         setVoiceDraft("");
-      });
+        setVoiceProcessing(false);
+      })();
     };
 
     recognition.start();
@@ -439,32 +420,33 @@ export function AddItemForm({
     }
 
     setError(null);
+    setDeletePending(true);
 
-    startTransition(async () => {
-      try {
-        const response = await fetch(`/api/items/${createdItemId}`, {
-          method: "DELETE"
-        });
+    try {
+      const response = await fetch(`/api/items/${createdItemId}`, {
+        method: "DELETE"
+      });
 
-        if (!response.ok) {
-          throw new Error("No se pudo eliminar el producto.");
-        }
-
-        onItemDeleted?.(createdItemId);
-        setCreatedItemId(null);
-        setDuplicateNotice(null);
-        setSuccess("Producto eliminado.");
-      } catch (deleteError) {
-        setError(deleteError instanceof Error ? deleteError.message : "No se pudo eliminar el producto.");
+      if (!response.ok) {
+        throw new Error("No se pudo eliminar el producto.");
       }
-    });
+
+      onItemDeleted?.(createdItemId);
+      setCreatedItemId(null);
+      setDuplicateNotice(null);
+      setSuccess("Producto eliminado.");
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "No se pudo eliminar el producto.");
+    } finally {
+      setDeletePending(false);
+    }
   }
 
   return (
     <div className="grid gap-4 rounded-[26px] border border-[var(--border)] bg-[rgba(250,249,246,0.9)] p-5">
       <form onSubmit={handleSubmit} className="grid gap-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">AÃ±adir producto</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Anadir producto</p>
           <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">Rellena la lista activa</h3>
         </div>
 
@@ -473,7 +455,7 @@ export function AddItemForm({
             <div>
               <p className="text-sm font-semibold text-[var(--text)]">Nota de voz</p>
               <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-                Di productos separados por pausas o por "y". RecordApp intentará transcribirlos y añadirlos automáticamente.
+                Di productos separados por pausas o por "y". RecordApp intentara transcribirlos y anadirlos automaticamente.
               </p>
             </div>
             <button
@@ -482,7 +464,7 @@ export function AddItemForm({
               disabled={pending || !listReady || !voiceSupported}
               className="rounded-full border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-2.5 text-sm font-semibold text-[var(--accent-strong)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {!voiceSupported ? "Voz no disponible" : voiceListening ? "Detener grabación" : "Añadir por voz"}
+              {!voiceSupported ? "Voz no disponible" : voiceListening ? "Escuchando..." : voiceProcessing ? "Procesando voz..." : "Anadir por voz"}
             </button>
           </div>
           {voiceDraft ? (
@@ -507,7 +489,7 @@ export function AddItemForm({
               {selectedProduct ? (
                 <>
                   <span className="rounded-full bg-[var(--accent-soft)] px-3 py-1 text-xs font-semibold text-[var(--accent-strong)]">
-                    Producto del catálogo
+                    Producto del catalogo
                   </span>
                   {inferredSection ? (
                     <span className="rounded-full bg-[#eef3ef] px-3 py-1 text-xs font-semibold capitalize text-[var(--muted)]">
@@ -522,7 +504,7 @@ export function AddItemForm({
                 </>
               ) : name.trim() ? (
                 <span className="rounded-full bg-[#fff7dd] px-3 py-1 text-xs font-semibold text-[#7c6320]">
-                  Producto nuevo: se guardará en tu catálogo
+                  Producto nuevo: se guardara en tu catalogo
                 </span>
               ) : (
                 <span className="rounded-full bg-[#eef3ef] px-3 py-1 text-xs font-semibold text-[var(--muted)]">
@@ -531,7 +513,7 @@ export function AddItemForm({
               )}
               {inferredSection ? (
                 <span className="rounded-full bg-[#eef3ef] px-3 py-1 text-xs font-semibold capitalize text-[var(--muted)]">
-                  Categoría automática: {inferredSection}
+                  Categoria automatica: {inferredSection}
                 </span>
               ) : null}
             </div>
@@ -578,7 +560,7 @@ export function AddItemForm({
               type="text"
               value={notes}
               onChange={(event) => setNotes(event.currentTarget.value)}
-              placeholder="Nota rápida: marca, sin gluten, pasillo..."
+              placeholder="Nota rapida: marca, sin gluten, pasillo..."
               maxLength={240}
               className="rounded-[18px] border border-[var(--border)] bg-white px-4 py-3 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
             />
@@ -588,13 +570,13 @@ export function AddItemForm({
         {duplicateItemsInCurrentList.length > 0 ? (
           <div className="rounded-[22px] border border-[#f0d7a3] bg-[#fff8ea] px-4 py-4 text-sm leading-6 text-[#7b5b1d]">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="font-semibold text-[#5c4312]">Este producto ya está en la lista activa</p>
+              <p className="font-semibold text-[#5c4312]">Este producto ya esta en la lista activa</p>
               <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#7b5b1d]">
                 {duplicateItemsInCurrentList.length} coincidencias
               </span>
             </div>
             <p className="mt-2">
-              Revisa si conviene fusionarlo antes de añadirlo otra vez{duplicateAssignees.length > 0 ? ` o si ya lo está llevando ${duplicateAssignees.join(", ")}.` : "."}
+              Revisa si conviene fusionarlo antes de anadirlo otra vez{duplicateAssignees.length > 0 ? ` o si ya lo esta llevando ${duplicateAssignees.join(", ")}.` : "."}
             </p>
           </div>
         ) : null}
@@ -607,14 +589,14 @@ export function AddItemForm({
           disabled={pending || !listReady}
           className="rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {!listReady ? "Preparando lista..." : pending ? "Añadiendo..." : "Guardar producto"}
+          {!listReady ? "Preparando lista..." : submitPending ? "Anadiendo..." : "Guardar producto"}
         </button>
       </form>
 
       {duplicateNotice ? (
         <div className="rounded-[22px] border border-[#f2d57e] bg-[#fff7dd] px-4 py-4 text-sm leading-6 text-[#7c6320]">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-semibold text-[#5a4714]">Ya lo habías comprado antes</p>
+            <p className="font-semibold text-[#5a4714]">Ya lo habias comprado antes</p>
             <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#7c6320]">
               {duplicateNotice.appearances} veces
             </span>
@@ -622,7 +604,7 @@ export function AddItemForm({
           <p className="mt-2">{duplicateNotice.message}</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             <div className="rounded-2xl bg-white/80 px-3 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7440]">Última aparición</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8c7440]">Ultima aparicion</p>
               <p className="mt-1 font-medium text-[#5a4714]">{formatDate(duplicateNotice.lastSeenAt)}</p>
             </div>
             <div className="rounded-2xl bg-white/80 px-3 py-3">
@@ -643,7 +625,7 @@ export function AddItemForm({
                 disabled={pending}
                 className="rounded-full border border-[#e0a7a7] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#b44d4d] transition hover:bg-[#fff4f4] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Eliminar producto recién añadido
+                Eliminar producto recien anadido
               </button>
             </div>
           ) : null}

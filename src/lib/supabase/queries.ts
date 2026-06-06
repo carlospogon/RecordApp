@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
 import { buildShoppingAnalysis } from "@/lib/shopping/analysis";
 import { inferCategoryFromNormalizedName } from "@/lib/shopping/product-category-inference";
@@ -15,6 +16,7 @@ import {
   ShoppingListInvite,
   ShoppingListTemplate,
   ShoppingMember,
+  ShoppingPendingInvite,
   ShoppingSpace
 } from "@/types/shopping";
 
@@ -303,6 +305,7 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
   }
 
   const supabase = await createSupabaseServerClient();
+  const admin = createSupabaseAdminClient();
   const { data: spaceMemberRows } = await supabase
     .from("shopping_space_members")
     .select("space_id, role");
@@ -352,11 +355,34 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
     throw new Error(listError.message);
   }
 
-  const { data: allItemsData, error: allItemsError } = await supabase
-    .from("shopping_items")
-    .select("id, list_id, name, normalized_name, quantity, unit, section, notes, assigned_to_user_id, status, created_at, updated_at, checked_at")
-    .order("created_at", { ascending: false })
-    .limit(500);
+  const missingMemberListIds = [...new Set((memberRows ?? []).map((row) => (row as ShoppingListMemberRow).list_id))].filter(
+    (listId) => !(listsData ?? []).some((list) => list.id === listId)
+  );
+
+  if (missingMemberListIds.length > 0) {
+    const { data: sharedListsData, error: sharedListsError } = await admin
+      .from("shopping_lists")
+      .select("id, user_id, space_id, shared, title, shopping_date, reminder_date, reminder_sent_at, created_at, updated_at, completed_at")
+      .in("id", missingMemberListIds);
+
+    if (sharedListsError) {
+      throw new Error(sharedListsError.message);
+    }
+
+    listsData = [...(listsData ?? []), ...((sharedListsData ?? []) as ShoppingListRow[])];
+  }
+
+  const accessibleListIds = [...new Set((listsData ?? []).map((list) => list.id))];
+
+  const { data: allItemsData, error: allItemsError } =
+    accessibleListIds.length > 0
+      ? await admin
+          .from("shopping_items")
+          .select("id, list_id, name, normalized_name, quantity, unit, section, notes, assigned_to_user_id, status, created_at, updated_at, checked_at")
+          .in("list_id", accessibleListIds)
+          .order("created_at", { ascending: false })
+          .limit(500)
+      : { data: [], error: null };
 
   if (allItemsError) {
     throw new Error(allItemsError.message);
@@ -440,6 +466,9 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
   });
   const currentList = selectedListId ? lists.find((list) => list.id === selectedListId) ?? null : null;
   const currentListMembers = currentList ? await getMembersForList(supabase, currentList.id) : [];
+  const currentListPendingInvites: ShoppingPendingInvite[] = currentList
+    ? await getPendingInvitesForList(currentList.id)
+    : [];
 
   const items = allItems
     .filter((item) => item.listId === currentList?.id)
@@ -496,6 +525,7 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
     templates,
     spaces: spacesWithStats,
     currentListMembers,
+    currentListPendingInvites,
     items,
     suggestionItems,
     scheduledListReminders,
@@ -505,6 +535,32 @@ export async function getShoppingDashboardData(selectedListId?: string | null): 
     analysis,
     selectedListId: currentList?.id ?? null
   };
+}
+
+async function getPendingInvitesForList(listId: string): Promise<ShoppingPendingInvite[]> {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("shopping_list_email_invites")
+    .select("id, email, share_code, status, created_at, accepted_at")
+    .eq("list_id", listId)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return [];
+  }
+
+  const appBaseUrl = env.APP_PUBLIC_URL ?? "http://localhost:3000";
+
+  return (data ?? []).map((invite) => ({
+    id: invite.id,
+    email: invite.email,
+    shareCode: invite.share_code,
+    status: invite.status,
+    createdAt: invite.created_at,
+    acceptedAt: invite.accepted_at,
+    inviteLink: `${appBaseUrl}/auth?mode=signup&invite=${encodeURIComponent(invite.share_code)}`
+  }));
 }
 
 export async function getExistingInviteForList(listId: string): Promise<ShoppingListInvite | null> {

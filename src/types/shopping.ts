@@ -200,6 +200,7 @@ export type ShoppingDashboardData = {
   templates: ShoppingListTemplate[];
   spaces: ShoppingSpace[];
   currentListMembers: ShoppingMember[];
+  currentListPendingInvites: ShoppingPendingInvite[];
   items: ShoppingItem[];
   suggestionItems: ShoppingItem[];
   scheduledListReminders: ScheduledListReminder[];

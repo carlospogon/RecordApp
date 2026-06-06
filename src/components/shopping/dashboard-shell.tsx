@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { quickAddReminderItemAction, signOutAction } from "@/app/app/actions";
+import { quickAddReminderItemAction } from "@/app/app/actions";
 import { AddItemForm } from "@/components/shopping/add-item-form";
 import { CreateListForm } from "@/components/shopping/create-list-form";
 import { buildRepeatedListTitle } from "@/lib/shopping/repeat-title";
@@ -449,7 +449,7 @@ function FlowCard({
   const [participantEmail, setParticipantEmail] = useState("");
   const [participantError, setParticipantError] = useState<string | null>(null);
   const [participantSuccess, setParticipantSuccess] = useState<string | null>(null);
-  const [participantPending, startParticipantTransition] = useTransition();
+  const [participantPending, setParticipantPending] = useState(false);
   const [pendingInviteActionEmail, setPendingInviteActionEmail] = useState<string | null>(null);
   const [copiedInviteEmail, setCopiedInviteEmail] = useState<string | null>(null);
 
@@ -624,66 +624,67 @@ function FlowCard({
             <button
               type="button"
               disabled={participantPending || !participantEmail.trim()}
-              onClick={() => {
+              onClick={async () => {
                 setParticipantError(null);
                 setParticipantSuccess(null);
-                startParticipantTransition(async () => {
-                  try {
-                    const response = await fetch(`/api/lists/${currentList.id}/members`, {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json"
-                      },
-                      body: JSON.stringify({ email: participantEmail })
-                    });
-                    const payload = (await response.json()) as {
-                      member?: ShoppingMember;
-                      added?: boolean;
-                      invitedByEmail?: boolean;
-                      deliveryMethod?: "email" | "manual_link";
-                      email?: string;
-                      pendingInvite?: ShoppingPendingInvite;
-                      listShared?: boolean;
-                      error?: string;
-                    };
+                setParticipantPending(true);
+                try {
+                  const response = await fetch(`/api/lists/${currentList.id}/members`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ email: participantEmail })
+                  });
+                  const payload = (await response.json()) as {
+                    member?: ShoppingMember;
+                    added?: boolean;
+                    invitedByEmail?: boolean;
+                    deliveryMethod?: "email" | "manual_link";
+                    email?: string;
+                    pendingInvite?: ShoppingPendingInvite;
+                    listShared?: boolean;
+                    error?: string;
+                  };
 
-                    if (!response.ok) {
-                      throw new Error(payload.error || "No se pudo añadir a esa persona.");
-                    }
-
-                    setParticipantEmail("");
-
-                    if (payload.member) {
-                      onMemberAdded(payload.member, Boolean(payload.listShared));
-                      setParticipantSuccess(
-                        payload.added
-                          ? `${payload.member.displayName} ya puede entrar en esta lista.`
-                          : `${payload.member.displayName} ya formaba parte de esta lista.`
-                      );
-                      return;
-                    }
-
-                    if (payload.invitedByEmail) {
-                      if (payload.pendingInvite) {
-                        onPendingInviteAdded(payload.pendingInvite, Boolean(payload.listShared));
-                        if (payload.deliveryMethod === "manual_link" && payload.pendingInvite.inviteLink) {
-                          await navigator.clipboard?.writeText(payload.pendingInvite.inviteLink);
-                          setCopiedInviteEmail(payload.pendingInvite.email);
-                        }
-                      }
-                      setParticipantSuccess(
-                        payload.deliveryMethod === "manual_link"
-                          ? `No hay correo configurado en este entorno. Enlace copiado para compartir con ${payload.email}.`
-                          : `Invitación enviada a ${payload.email}. Cuando entre desde el enlace, podrá unirse a la lista.`
-                      );
-                      return;
-                    }
-
-                    throw new Error("No se pudo añadir a esa persona.");
-                  } catch (error) {
-                    setParticipantError(error instanceof Error ? error.message : "No se pudo añadir a esa persona.");
+                  if (!response.ok) {
+                    throw new Error(payload.error || "No se pudo añadir a esa persona.");
                   }
-                });
+
+                  setParticipantEmail("");
+
+                  if (payload.member) {
+                    onMemberAdded(payload.member, Boolean(payload.listShared));
+                    setParticipantSuccess(
+                      payload.added
+                        ? `${payload.member.displayName} ya puede entrar en esta lista.`
+                        : `${payload.member.displayName} ya formaba parte de esta lista.`
+                    );
+                    return;
+                  }
+
+                  if (payload.invitedByEmail) {
+                    if (payload.pendingInvite) {
+                      onPendingInviteAdded(payload.pendingInvite, Boolean(payload.listShared));
+                      if (payload.deliveryMethod === "manual_link" && payload.pendingInvite.inviteLink) {
+                        await navigator.clipboard?.writeText(payload.pendingInvite.inviteLink);
+                        setCopiedInviteEmail(payload.pendingInvite.email);
+                      }
+                    }
+                    setParticipantSuccess(
+                      payload.deliveryMethod === "manual_link"
+                        ? `No hay correo configurado en este entorno. Enlace copiado para compartir con ${payload.email}.`
+                        : `Invitación enviada a ${payload.email}. Cuando entre desde el enlace, podrá unirse a la lista.`
+                    );
+                    return;
+                  }
+
+                  throw new Error("No se pudo añadir a esa persona.");
+                } catch (error) {
+                  setParticipantError(error instanceof Error ? error.message : "No se pudo añadir a esa persona.");
+                } finally {
+                  setParticipantPending(false);
+                }
               }}
               className="rounded-full bg-[var(--surface-strong)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1d3028] disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -722,47 +723,45 @@ function FlowCard({
                     <button
                       type="button"
                       disabled={pendingInviteActionEmail === invite.email}
-                      onClick={() => {
+                      onClick={async () => {
                         setParticipantError(null);
                         setParticipantSuccess(null);
                         setPendingInviteActionEmail(invite.email);
-                        startParticipantTransition(async () => {
-                          try {
-                            const response = await fetch(`/api/lists/${currentList.id}/members`, {
-                              method: "POST",
-                              headers: {
-                                "Content-Type": "application/json"
-                              },
-                              body: JSON.stringify({ email: invite.email })
-                            });
-                            const payload = (await response.json()) as {
-                              pendingInvite?: ShoppingPendingInvite;
-                              deliveryMethod?: "email" | "manual_link";
-                              email?: string;
-                              listShared?: boolean;
-                              error?: string;
-                            };
+                        try {
+                          const response = await fetch(`/api/lists/${currentList.id}/members`, {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json"
+                            },
+                            body: JSON.stringify({ email: invite.email })
+                          });
+                          const payload = (await response.json()) as {
+                            pendingInvite?: ShoppingPendingInvite;
+                            deliveryMethod?: "email" | "manual_link";
+                            email?: string;
+                            listShared?: boolean;
+                            error?: string;
+                          };
 
-                            if (!response.ok || !payload.pendingInvite) {
-                              throw new Error(payload.error || "No se pudo reenviar la invitación.");
-                            }
-
-                            onPendingInviteAdded(payload.pendingInvite, Boolean(payload.listShared));
-                            if (payload.deliveryMethod === "manual_link" && payload.pendingInvite.inviteLink) {
-                              await navigator.clipboard?.writeText(payload.pendingInvite.inviteLink);
-                              setCopiedInviteEmail(payload.pendingInvite.email);
-                            }
-                            setParticipantSuccess(
-                              payload.deliveryMethod === "manual_link"
-                                ? `Enlace de invitación listo para compartir con ${payload.email}.`
-                                : `Invitación reenviada a ${payload.email}.`
-                            );
-                          } catch (error) {
-                            setParticipantError(error instanceof Error ? error.message : "No se pudo reenviar la invitación.");
-                          } finally {
-                            setPendingInviteActionEmail((current) => (current === invite.email ? null : current));
+                          if (!response.ok || !payload.pendingInvite) {
+                            throw new Error(payload.error || "No se pudo reenviar la invitación.");
                           }
-                        });
+
+                          onPendingInviteAdded(payload.pendingInvite, Boolean(payload.listShared));
+                          if (payload.deliveryMethod === "manual_link" && payload.pendingInvite.inviteLink) {
+                            await navigator.clipboard?.writeText(payload.pendingInvite.inviteLink);
+                            setCopiedInviteEmail(payload.pendingInvite.email);
+                          }
+                          setParticipantSuccess(
+                            payload.deliveryMethod === "manual_link"
+                              ? `Enlace de invitación listo para compartir con ${payload.email}.`
+                              : `Invitación reenviada a ${payload.email}.`
+                          );
+                        } catch (error) {
+                          setParticipantError(error instanceof Error ? error.message : "No se pudo reenviar la invitación.");
+                        } finally {
+                          setPendingInviteActionEmail((current) => (current === invite.email ? null : current));
+                        }
                       }}
                       className="rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text)] transition hover:bg-[var(--surface-soft)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
@@ -771,33 +770,31 @@ function FlowCard({
                     <button
                       type="button"
                       disabled={pendingInviteActionEmail === invite.email}
-                      onClick={() => {
+                      onClick={async () => {
                         setParticipantError(null);
                         setParticipantSuccess(null);
                         setPendingInviteActionEmail(invite.email);
-                        startParticipantTransition(async () => {
-                          try {
-                            const response = await fetch(`/api/lists/${currentList.id}/members`, {
-                              method: "DELETE",
-                              headers: {
-                                "Content-Type": "application/json"
-                              },
-                              body: JSON.stringify({ email: invite.email })
-                            });
-                            const payload = (await response.json()) as { ok?: boolean; email?: string; error?: string };
+                        try {
+                          const response = await fetch(`/api/lists/${currentList.id}/members`, {
+                            method: "DELETE",
+                            headers: {
+                              "Content-Type": "application/json"
+                            },
+                            body: JSON.stringify({ email: invite.email })
+                          });
+                          const payload = (await response.json()) as { ok?: boolean; email?: string; error?: string };
 
-                            if (!response.ok || !payload.ok) {
-                              throw new Error(payload.error || "No se pudo cancelar la invitación.");
-                            }
-
-                            onPendingInviteRemoved(invite.email);
-                            setParticipantSuccess(`Invitación cancelada para ${payload.email}.`);
-                          } catch (error) {
-                            setParticipantError(error instanceof Error ? error.message : "No se pudo cancelar la invitación.");
-                          } finally {
-                            setPendingInviteActionEmail((current) => (current === invite.email ? null : current));
+                          if (!response.ok || !payload.ok) {
+                            throw new Error(payload.error || "No se pudo cancelar la invitación.");
                           }
-                        });
+
+                          onPendingInviteRemoved(invite.email);
+                          setParticipantSuccess(`Invitación cancelada para ${payload.email}.`);
+                        } catch (error) {
+                          setParticipantError(error instanceof Error ? error.message : "No se pudo cancelar la invitación.");
+                        } finally {
+                          setPendingInviteActionEmail((current) => (current === invite.email ? null : current));
+                        }
                       }}
                       className="rounded-full border border-[#ead8d2] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#a45f4a] transition hover:bg-[#fff7f4] disabled:cursor-not-allowed disabled:opacity-60"
                     >
@@ -2181,14 +2178,15 @@ export function DashboardShell({
         </div>
 
         <div className="mt-4 border-t border-[rgba(112,150,130,0.16)] pt-4">
-          <form action={signOutAction}>
-            <button
-              type="submit"
-              className="w-full rounded-full border border-[rgba(112,150,130,0.18)] bg-[var(--surface)] px-4 py-3 text-sm font-semibold text-[var(--text)] transition hover:bg-[var(--surface-soft)]"
-            >
-              Cerrar sesión
-            </button>
-          </form>
+          <button
+            type="button"
+            onClick={() => {
+              window.location.assign("/api/auth/signout");
+            }}
+            className="w-full rounded-full border border-[rgba(112,150,130,0.18)] bg-[var(--surface)] px-4 py-3 text-sm font-semibold text-[var(--text)] transition hover:bg-[var(--surface-soft)]"
+          >
+            Cerrar sesión
+          </button>
           <div className="mt-3 rounded-[18px] border border-[rgba(112,150,130,0.14)] bg-[var(--surface-soft)] px-3 py-2.5">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">Versión</p>
