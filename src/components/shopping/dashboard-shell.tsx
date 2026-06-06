@@ -226,11 +226,13 @@ function buildDuplicateClusters(items: ShoppingItem[]): DuplicateCluster[] {
 function CollaborationPanel({
   listId,
   items,
-  members
+  members,
+  refreshKey = 0
 }: {
   listId: string;
   items: ShoppingItem[];
   members: ShoppingMember[];
+  refreshKey?: number;
 }) {
   const fallbackActivity = useMemo(() => buildRecentActivity(items, members), [items, members]);
   const duplicateClusters = useMemo(() => buildDuplicateClusters(items), [items]);
@@ -264,7 +266,7 @@ function CollaborationPanel({
     return () => {
       cancelled = true;
     };
-  }, [fallbackActivity, listId]);
+  }, [fallbackActivity, listId, refreshKey]);
 
   if (items.length === 0) {
     return null;
@@ -1367,6 +1369,7 @@ export function DashboardShell({
   const [localScheduledListReminders, setLocalScheduledListReminders] = useState(scheduledListReminders);
   const [localSelectedListId, setLocalSelectedListId] = useState<string | null>(selectedListId ?? null);
   const [localSelectedSpaceId, setLocalSelectedSpaceId] = useState<string | null>(null);
+  const [localActivityRefreshKey, setLocalActivityRefreshKey] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [, startPendingInviteJoin] = useTransition();
@@ -1487,8 +1490,62 @@ export function DashboardShell({
     }
 
     const supabase = createSupabaseBrowserClient();
+    let syncTimeout: number | null = null;
+    const scheduleSnapshotSync = () => {
+      if (syncTimeout) {
+        window.clearTimeout(syncTimeout);
+      }
+
+      syncTimeout = window.setTimeout(async () => {
+        try {
+          const [itemsResponse, membersResponse] = await Promise.all([
+            fetch(`/api/lists/${localCurrentList.id}/items`, { cache: "no-store" }),
+            fetch(`/api/lists/${localCurrentList.id}/members`, { cache: "no-store" })
+          ]);
+
+          if (itemsResponse.ok) {
+            const itemsPayload = (await itemsResponse.json()) as { items?: ShoppingItem[] };
+            if (itemsPayload.items) {
+              setLocalItems(itemsPayload.items);
+              setLocalCurrentList((previous) =>
+                previous && previous.id === localCurrentList.id
+                  ? {
+                      ...previous,
+                      itemCount: itemsPayload.items?.length ?? 0
+                    }
+                  : previous
+              );
+              setLocalLists((previous) =>
+                previous.map((list) =>
+                  list.id === localCurrentList.id
+                    ? {
+                        ...list,
+                        itemCount: itemsPayload.items?.length ?? 0
+                      }
+                    : list
+                )
+              );
+            }
+          }
+
+          if (membersResponse.ok) {
+            const membersPayload = (await membersResponse.json()) as {
+              members?: ShoppingMember[];
+              pendingInvites?: ShoppingPendingInvite[];
+            };
+            setLocalCurrentListMembers((membersPayload.members as ShoppingMember[]) ?? []);
+            setLocalCurrentListPendingInvites((membersPayload.pendingInvites as ShoppingPendingInvite[]) ?? []);
+          }
+        } catch {
+          return;
+        } finally {
+          setLocalActivityRefreshKey((current) => current + 1);
+        }
+      }, 250);
+    };
+
     const channel = supabase
-      .channel(`shopping-items-${localCurrentList.id}`)
+      .channel(`shopping-live-${localCurrentList.id}`)
       .on(
         "postgres_changes",
         {
@@ -1512,11 +1569,13 @@ export function DashboardShell({
             if (inserted) {
               incrementListCount(nextItem.listId, 1);
             }
+            scheduleSnapshotSync();
           }
 
           if (payload.eventType === "UPDATE" && payload.new) {
             const nextItem = mapRealtimeItem(payload.new as Record<string, unknown>);
             setLocalItems((previous) => previous.map((item) => (item.id === nextItem.id ? nextItem : item)));
+            scheduleSnapshotSync();
           }
 
           if (payload.eventType === "DELETE" && payload.old) {
@@ -1536,12 +1595,40 @@ export function DashboardShell({
             if (removed) {
               incrementListCount(removedListId, -1);
             }
+            scheduleSnapshotSync();
           }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "shopping_activity_events",
+          filter: `list_id=eq.${localCurrentList.id}`
+        },
+        () => {
+          setLocalActivityRefreshKey((current) => current + 1);
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "shopping_list_members",
+          filter: `list_id=eq.${localCurrentList.id}`
+        },
+        () => {
+          scheduleSnapshotSync();
         }
       )
       .subscribe();
 
     return () => {
+      if (syncTimeout) {
+        window.clearTimeout(syncTimeout);
+      }
       supabase.removeChannel(channel);
     };
   }, [localCurrentList?.id]);
@@ -2243,7 +2330,14 @@ export function DashboardShell({
               onPendingInviteAdded={handlePendingInviteAdded}
               onPendingInviteRemoved={handlePendingInviteRemoved}
             />
-            {localCurrentList ? <CollaborationPanel listId={localCurrentList.id} items={localItems} members={localCurrentListMembers} /> : null}
+            {localCurrentList ? (
+              <CollaborationPanel
+                listId={localCurrentList.id}
+                items={localItems}
+                members={localCurrentListMembers}
+                refreshKey={localActivityRefreshKey}
+              />
+            ) : null}
             {localCurrentList ? (
               <section className="rounded-[28px] bg-white p-4 shadow-[0_16px_40px_rgba(18,40,28,0.08)] sm:p-5">
                 <ItemsList
