@@ -16,11 +16,12 @@ const bodyFont = Be_Vietnam_Pro({
 export default async function AuthPage({
   searchParams
 }: {
-  searchParams?: Promise<{ error?: string; mode?: string }>;
+  searchParams?: Promise<{ error?: string; mode?: string; invite?: string }>;
 }) {
   const params = (await searchParams) ?? {};
   const showGoogleError = params.error === "google";
   const initialMode = params.mode === "signup" ? "signup" : "signin";
+  const inviteCode = typeof params.invite === "string" ? params.invite.trim().toUpperCase() : "";
 
   return (
     <main className={`relative min-h-screen overflow-hidden bg-[#faf9f6] text-[#1a1c1a] ${bodyFont.className}`}>
@@ -78,7 +79,13 @@ export default async function AuthPage({
                 </div>
               ) : null}
 
-              <AuthForms initialMode={initialMode} />
+              {inviteCode ? (
+                <div className="mb-4 rounded-[22px] border border-[#d8e2d7] bg-[rgba(246,243,238,0.92)] p-4 text-sm text-[#4f6a56]">
+                  Tienes una invitaciÃ³n pendiente para una lista compartida. En cuanto entres, RecordApp intentarÃ¡ abrirla por ti.
+                </div>
+              ) : null}
+
+              <AuthForms initialMode={initialMode} inviteCode={inviteCode} />
             </div>
           </div>
         </div>

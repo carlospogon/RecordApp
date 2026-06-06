@@ -67,6 +67,15 @@ export type ShoppingMember = {
   role: "owner" | "editor";
 };
 
+export type ShoppingPendingInvite = {
+  id: string;
+  email: string;
+  shareCode: string;
+  status: "pending" | "accepted";
+  createdAt: string;
+  acceptedAt?: string | null;
+};
+
 export type ShoppingActivityEvent = {
   id: string;
   actorUserId: string;

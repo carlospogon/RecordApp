@@ -7,7 +7,10 @@ const envSchema = z.object({
   NEXT_PUBLIC_VAPID_PUBLIC_KEY: z.string().optional(),
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT: z.string().optional(),
-  CRON_SECRET: z.string().optional()
+  CRON_SECRET: z.string().optional(),
+  APP_PUBLIC_URL: z.string().url().optional(),
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM_ADDRESS: z.string().optional()
 });
 
 export const env = envSchema.parse({
@@ -17,5 +20,8 @@ export const env = envSchema.parse({
   NEXT_PUBLIC_VAPID_PUBLIC_KEY: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
   VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY,
   VAPID_SUBJECT: process.env.VAPID_SUBJECT,
-  CRON_SECRET: process.env.CRON_SECRET
+  CRON_SECRET: process.env.CRON_SECRET,
+  APP_PUBLIC_URL: process.env.APP_PUBLIC_URL,
+  RESEND_API_KEY: process.env.RESEND_API_KEY,
+  EMAIL_FROM_ADDRESS: process.env.EMAIL_FROM_ADDRESS
 });

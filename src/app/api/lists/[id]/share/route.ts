@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getAccessibleListForUser } from "@/lib/supabase/shared-access";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -12,6 +14,7 @@ function buildShareCode() {
 export async function POST(_: Request, context: RouteContext) {
   const { id } = await context.params;
   const supabase = await createSupabaseServerClient();
+  const admin = createSupabaseAdminClient();
   const {
     data: { user }
   } = await supabase.auth.getUser();
@@ -20,7 +23,13 @@ export async function POST(_: Request, context: RouteContext) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: existingInvite } = await supabase
+  const accessibleList = await getAccessibleListForUser(id, user.id);
+
+  if (!accessibleList?.id || accessibleList.ownerId !== user.id) {
+    return NextResponse.json({ error: "Solo el propietario puede generar un código compartido." }, { status: 403 });
+  }
+
+  const { data: existingInvite } = await admin
     .from("shopping_list_invites")
     .select("list_id, share_code")
     .eq("list_id", id)
@@ -29,7 +38,7 @@ export async function POST(_: Request, context: RouteContext) {
     .maybeSingle();
 
   if (existingInvite?.share_code) {
-    await supabase.from("shopping_lists").update({ shared: true }).eq("id", id);
+    await admin.from("shopping_lists").update({ shared: true }).eq("id", id);
     return NextResponse.json({
       invite: {
         listId: existingInvite.list_id,
@@ -39,7 +48,7 @@ export async function POST(_: Request, context: RouteContext) {
   }
 
   const shareCode = buildShareCode();
-  const { data, error } = await supabase
+  const { data, error } = await admin
     .from("shopping_list_invites")
     .insert({
       list_id: id,
@@ -53,7 +62,7 @@ export async function POST(_: Request, context: RouteContext) {
     return NextResponse.json({ error: error?.message ?? "No se pudo generar el código." }, { status: 500 });
   }
 
-  await supabase.from("shopping_lists").update({ shared: true }).eq("id", id);
+  await admin.from("shopping_lists").update({ shared: true }).eq("id", id);
 
   return NextResponse.json({
     invite: {
