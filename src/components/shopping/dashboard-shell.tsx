@@ -1491,6 +1491,26 @@ export function DashboardShell({
 
     const supabase = createSupabaseBrowserClient();
     let syncTimeout: number | null = null;
+    let intervalId: number | null = null;
+    let lastItemsSignature = "";
+    let lastMembersSignature = "";
+    let lastPendingInvitesSignature = "";
+    let lastActivitySignature = "";
+
+    const buildItemsSignature = (itemsToSign: ShoppingItem[]) =>
+      itemsToSign
+        .map((item) => `${item.id}:${item.status}:${item.updatedAt}:${item.assignedToUserId ?? ""}:${item.checkedAt ?? ""}`)
+        .join("|");
+
+    const buildMembersSignature = (membersToSign: ShoppingMember[]) =>
+      membersToSign.map((member) => `${member.userId}:${member.role}:${member.displayName}`).join("|");
+
+    const buildPendingInvitesSignature = (invitesToSign: ShoppingPendingInvite[]) =>
+      invitesToSign.map((invite) => `${invite.id}:${invite.email}:${invite.createdAt}:${invite.status}`).join("|");
+
+    const buildActivitySignature = (activityToSign: ShoppingActivityEvent[]) =>
+      activityToSign.map((entry) => `${entry.id}:${entry.eventType}:${entry.createdAt}`).join("|");
+
     const scheduleSnapshotSync = () => {
       if (syncTimeout) {
         window.clearTimeout(syncTimeout);
@@ -1498,33 +1518,38 @@ export function DashboardShell({
 
       syncTimeout = window.setTimeout(async () => {
         try {
-          const [itemsResponse, membersResponse] = await Promise.all([
+          const [itemsResponse, membersResponse, activityResponse] = await Promise.all([
             fetch(`/api/lists/${localCurrentList.id}/items`, { cache: "no-store" }),
-            fetch(`/api/lists/${localCurrentList.id}/members`, { cache: "no-store" })
+            fetch(`/api/lists/${localCurrentList.id}/members`, { cache: "no-store" }),
+            fetch(`/api/lists/${localCurrentList.id}/activity`, { cache: "no-store" })
           ]);
 
           if (itemsResponse.ok) {
             const itemsPayload = (await itemsResponse.json()) as { items?: ShoppingItem[] };
             if (itemsPayload.items) {
-              setLocalItems(itemsPayload.items);
-              setLocalCurrentList((previous) =>
-                previous && previous.id === localCurrentList.id
-                  ? {
-                      ...previous,
-                      itemCount: itemsPayload.items?.length ?? 0
-                    }
-                  : previous
-              );
-              setLocalLists((previous) =>
-                previous.map((list) =>
-                  list.id === localCurrentList.id
+              const nextItemsSignature = buildItemsSignature(itemsPayload.items);
+              if (nextItemsSignature !== lastItemsSignature) {
+                lastItemsSignature = nextItemsSignature;
+                setLocalItems(itemsPayload.items);
+                setLocalCurrentList((previous) =>
+                  previous && previous.id === localCurrentList.id
                     ? {
-                        ...list,
+                        ...previous,
                         itemCount: itemsPayload.items?.length ?? 0
                       }
-                    : list
-                )
-              );
+                    : previous
+                );
+                setLocalLists((previous) =>
+                  previous.map((list) =>
+                    list.id === localCurrentList.id
+                      ? {
+                          ...list,
+                          itemCount: itemsPayload.items?.length ?? 0
+                        }
+                      : list
+                  )
+                );
+              }
             }
           }
 
@@ -1533,13 +1558,32 @@ export function DashboardShell({
               members?: ShoppingMember[];
               pendingInvites?: ShoppingPendingInvite[];
             };
-            setLocalCurrentListMembers((membersPayload.members as ShoppingMember[]) ?? []);
-            setLocalCurrentListPendingInvites((membersPayload.pendingInvites as ShoppingPendingInvite[]) ?? []);
+            const nextMembers = (membersPayload.members as ShoppingMember[]) ?? [];
+            const nextPendingInvites = (membersPayload.pendingInvites as ShoppingPendingInvite[]) ?? [];
+            const nextMembersSignature = buildMembersSignature(nextMembers);
+            const nextPendingInvitesSignature = buildPendingInvitesSignature(nextPendingInvites);
+
+            if (nextMembersSignature !== lastMembersSignature) {
+              lastMembersSignature = nextMembersSignature;
+              setLocalCurrentListMembers(nextMembers);
+            }
+
+            if (nextPendingInvitesSignature !== lastPendingInvitesSignature) {
+              lastPendingInvitesSignature = nextPendingInvitesSignature;
+              setLocalCurrentListPendingInvites(nextPendingInvites);
+            }
+          }
+
+          if (activityResponse.ok) {
+            const activityPayload = (await activityResponse.json()) as { activity?: ShoppingActivityEvent[] };
+            const nextActivitySignature = buildActivitySignature((activityPayload.activity as ShoppingActivityEvent[]) ?? []);
+            if (nextActivitySignature !== lastActivitySignature) {
+              lastActivitySignature = nextActivitySignature;
+              setLocalActivityRefreshKey((current) => current + 1);
+            }
           }
         } catch {
           return;
-        } finally {
-          setLocalActivityRefreshKey((current) => current + 1);
         }
       }, 250);
     };
@@ -1625,9 +1669,15 @@ export function DashboardShell({
       )
       .subscribe();
 
+    scheduleSnapshotSync();
+    intervalId = window.setInterval(scheduleSnapshotSync, 1500);
+
     return () => {
       if (syncTimeout) {
         window.clearTimeout(syncTimeout);
+      }
+      if (intervalId) {
+        window.clearInterval(intervalId);
       }
       supabase.removeChannel(channel);
     };
