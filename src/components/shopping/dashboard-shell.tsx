@@ -371,12 +371,15 @@ const navigationItems = [
   { id: "lista", label: "Lista", description: "Compra activa y espacios" },
   { id: "historial", label: "Historial", description: "Listas anteriores" },
   { id: "sugerencias", label: "Sugerencias", description: "Recordatorios y frecuencia" },
+  { id: "compartidas", label: "Compartidas", description: "Listas contigo" },
   { id: "analisis", label: "Análisis", description: "Lectura de patrones" },
   { id: "resumen", label: "Resumen", description: "Vista general" }
 ] as const;
 
+type NavigationTabId = (typeof navigationItems)[number]["id"];
+
 const sidebarTabIds = new Set(["analisis", "resumen"]);
-const footerTabIds = new Set(["lista", "historial", "sugerencias"]);
+const footerTabIds = new Set(["lista", "historial", "sugerencias", "compartidas"]);
 
 function mapRealtimeItem(row: Record<string, unknown>): ShoppingItem {
   return {
@@ -394,6 +397,71 @@ function mapRealtimeItem(row: Record<string, unknown>): ShoppingItem {
     updatedAt: String(row.updated_at),
     checkedAt: typeof row.checked_at === "string" ? row.checked_at : null
   };
+}
+
+function SharedListsPanel({
+  lists,
+  selectedListId
+}: {
+  lists: ShoppingList[];
+  selectedListId: string | null;
+}) {
+  const sharedLists = lists
+    .filter((list) => list.accessRole === "editor")
+    .sort((listA, listB) => new Date(listB.updatedAt).getTime() - new Date(listA.updatedAt).getTime());
+
+  return (
+    <section className="rounded-[28px] border border-[rgba(115,121,114,0.16)] bg-[rgba(255,255,255,0.78)] p-5 shadow-[0_18px_36px_rgba(74,97,80,0.08)] backdrop-blur-[14px]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Compartidas</p>
+      <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--text)]">Listas compartidas contigo</h2>
+      <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+        Aquí aparecen separadas de tus listas propias para que detectes rápido qué compra está moviendo otra persona.
+      </p>
+
+      <div className="mt-4 grid gap-3">
+        {sharedLists.length > 0 ? (
+          sharedLists.map((list) => {
+            const active = selectedListId === list.id;
+
+            return (
+              <article
+                key={list.id}
+                className={`rounded-[22px] border p-4 transition ${
+                  active
+                    ? "border-[rgba(112,150,130,0.32)] bg-[rgba(238,243,239,0.86)] shadow-[0_12px_24px_rgba(112,150,130,0.12)]"
+                    : "border-[var(--border)] bg-white"
+                }`}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--text)]">{list.title}</p>
+                    <p className="mt-1 text-sm text-[var(--muted)]">
+                      {formatDate(list.shoppingDate)} · {list.itemCount ?? 0} productos
+                      {list.spaceName ? ` · ${list.spaceName}` : ""}
+                    </p>
+                  </div>
+                  <Link
+                    href={`/app?list=${list.id}&tab=compartidas`}
+                    className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${
+                      active
+                        ? "border border-[rgba(112,150,130,0.2)] bg-white text-[var(--accent-strong)]"
+                        : "border border-[var(--accent)] bg-white text-[var(--accent-strong)] hover:bg-[var(--accent-soft)]"
+                    }`}
+                  >
+                    {active ? "Abierta" : "Abrir lista"}
+                  </Link>
+                </div>
+              </article>
+            );
+          })
+        ) : (
+          <div className="rounded-[22px] border border-dashed border-[var(--border)] bg-[var(--surface-soft)] px-4 py-4 text-sm leading-6 text-[var(--muted)]">
+            Todavía no tienes listas compartidas contigo. Cuando otra persona te añada, aparecerán aquí.
+          </div>
+        )}
+      </div>
+    </section>
+  );
 }
 
 function FlowCard({
@@ -456,48 +524,10 @@ function FlowCard({
   const [participantPending, setParticipantPending] = useState(false);
   const [pendingInviteActionEmail, setPendingInviteActionEmail] = useState<string | null>(null);
   const [copiedInviteEmail, setCopiedInviteEmail] = useState<string | null>(null);
-  const sharedWithYouLists = useMemo(
-    () =>
-      allLists
-        .filter((list) => list.accessRole === "editor")
-        .sort((listA, listB) => new Date(listB.updatedAt).getTime() - new Date(listA.updatedAt).getTime())
-        .slice(0, 4),
-    [allLists]
-  );
 
   if (!currentList) {
     return (
       <section className="rounded-[28px] border border-[rgba(115,121,114,0.16)] bg-[rgba(255,255,255,0.78)] p-5 shadow-[0_18px_36px_rgba(74,97,80,0.08)] backdrop-blur-[14px]">
-        {sharedWithYouLists.length > 0 ? (
-          <div className="mb-5 rounded-[26px] border border-[rgba(112,150,130,0.16)] bg-[rgba(238,243,239,0.84)] p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Compartidas contigo</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--text)]">Ya tienes listas a las que puedes entrar</h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-              Estas listas ya han sido compartidas contigo. Puedes abrirlas directamente desde aqui aunque no hayas recibido push.
-            </p>
-            <div className="mt-4 grid gap-3">
-              {sharedWithYouLists.map((list) => (
-                <article key={list.id} className="rounded-[22px] border border-[var(--border)] bg-white p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-[var(--text)]">{list.title}</p>
-                      <p className="mt-1 text-sm text-[var(--muted)]">
-                        {formatDate(list.shoppingDate)} · {list.itemCount ?? 0} productos
-                        {list.spaceName ? ` · ${list.spaceName}` : ""}
-                      </p>
-                    </div>
-                    <Link
-                      href={`/app?list=${list.id}&tab=lista`}
-                      className="rounded-full border border-[var(--accent)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)] transition hover:bg-[var(--accent-soft)]"
-                    >
-                      Abrir lista
-                    </Link>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
-        ) : null}
         <div className="mb-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Paso 1</p>
           <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--text)]">Crea tu primera lista</h2>
@@ -1352,7 +1382,7 @@ export function DashboardShell({
   frequentProducts: ProductInsight[];
   catalogProducts: ProductCatalogItem[];
   analysis: ShoppingAnalysis;
-  activeTab: "lista" | "historial" | "sugerencias" | "analisis" | "resumen";
+  activeTab: NavigationTabId;
   selectedListId?: string | null;
   scheduledListReminders: { listId: string; title: string; shoppingDate: string; reminderDate: string; isDue: boolean }[];
   pushPublicKey?: string;
@@ -1812,7 +1842,7 @@ export function DashboardShell({
     });
   }
 
-  function syncListUrl(listId: string | null) {
+  function syncListUrl(listId: string | null, tabOverride?: NavigationTabId) {
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       if (listId) {
@@ -1820,7 +1850,7 @@ export function DashboardShell({
       } else {
         url.searchParams.delete("list");
       }
-      url.searchParams.set("tab", "lista");
+      url.searchParams.set("tab", tabOverride ?? localActiveTab);
       window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
     }
   }
@@ -1857,7 +1887,7 @@ export function DashboardShell({
       ]);
     }
 
-    syncListUrl(list.id);
+    syncListUrl(list.id, "lista");
   }
 
   function handleListCreated(list: ShoppingList, itemsForList?: ShoppingItem[]) {
@@ -1869,7 +1899,7 @@ export function DashboardShell({
     }
     setLocalScheduledListReminders((previous) => previous);
 
-    syncListUrl(list.id);
+    syncListUrl(list.id, "lista");
   }
 
   async function handleRepeatList(list: ShoppingList) {
@@ -2039,8 +2069,9 @@ export function DashboardShell({
   function handleListJoined(list: ShoppingList) {
     setLocalCurrentList(list);
     setLocalSelectedListId(list.id);
+    setLocalActiveTab(list.accessRole === "editor" ? "compartidas" : "lista");
     setLocalLists((previous) => (previous.some((entry) => entry.id === list.id) ? previous : [list, ...previous]));
-    syncListUrl(list.id);
+    syncListUrl(list.id, list.accessRole === "editor" ? "compartidas" : "lista");
 
     fetch(`/api/lists/${list.id}/items`)
       .then((response) => (response.ok ? response.json() : null))
@@ -2280,7 +2311,7 @@ export function DashboardShell({
     }
   }
 
-  function handleTabChange(nextTab: typeof activeTab) {
+  function handleTabChange(nextTab: NavigationTabId) {
     setLocalActiveTab(nextTab);
     setSidebarOpen(false);
 
@@ -2489,6 +2520,55 @@ export function DashboardShell({
           />
         ) : null}
 
+        {localActiveTab === "compartidas" ? (
+          <>
+            <SharedListsPanel lists={localLists} selectedListId={localCurrentList?.accessRole === "editor" ? localCurrentList.id : null} />
+            {localCurrentList?.accessRole === "editor" ? (
+              <>
+                <FlowCard
+                  currentList={localCurrentList}
+                  currentItemsCount={localItems.length}
+                  currentItems={localItems}
+                  currentListMembers={localCurrentListMembers}
+                  currentListPendingInvites={localCurrentListPendingInvites}
+                  allLists={localLists}
+                  reusableLists={localLists.filter((list) => (list.itemCount ?? 0) > 0)}
+                  templates={localTemplates}
+                  spaces={localSpaces}
+                  selectedSpaceId={localSelectedSpaceId}
+                  catalogProducts={catalogProducts}
+                  onItemCreated={handleItemCreated}
+                  onOptimisticItemCreated={handleOptimisticItemCreated}
+                  onItemDeleted={handleItemDeleted}
+                  onFinalizeList={handleFinalizeList}
+                  onListCreated={handleListCreated}
+                  onOptimisticListCreated={handleOptimisticListCreated}
+                  onListCreationFailed={handleListCreationFailed}
+                  onListJoined={handleListJoined}
+                  onMemberAdded={handleMemberAdded}
+                  onPendingInviteAdded={handlePendingInviteAdded}
+                  onPendingInviteRemoved={handlePendingInviteRemoved}
+                />
+                <CollaborationPanel
+                  listId={localCurrentList.id}
+                  items={localItems}
+                  members={localCurrentListMembers}
+                  refreshKey={localActivityRefreshKey}
+                />
+                <section className="rounded-[28px] bg-white p-4 shadow-[0_16px_40px_rgba(18,40,28,0.08)] sm:p-5">
+                  <ItemsList
+                    items={localItems}
+                    members={localCurrentListMembers}
+                    onDelete={handleItemDeleted}
+                    onToggle={handleItemToggled}
+                    onAssign={handleItemAssigned}
+                  />
+                </section>
+              </>
+            ) : null}
+          </>
+        ) : null}
+
         {localActiveTab === "analisis" ? <AnalysisPanel analysis={analysis} currentListId={localCurrentList?.id} /> : null}
 
         {localActiveTab === "resumen" ? (
@@ -2508,7 +2588,7 @@ export function DashboardShell({
                 sidebarOpen ? "pointer-events-none opacity-0 blur-sm" : "pointer-events-none opacity-100"
               }`}
             >
-              <div className="pointer-events-auto grid w-[min(100%,34rem)] grid-cols-3 gap-2 rounded-[24px] border border-[rgba(112,150,130,0.14)] bg-[rgba(250,249,246,0.96)] p-2 shadow-[0_20px_40px_rgba(112,150,130,0.18)] backdrop-blur-[18px]">
+              <div className="pointer-events-auto grid w-[min(100%,38rem)] grid-cols-4 gap-2 rounded-[24px] border border-[rgba(112,150,130,0.14)] bg-[rgba(250,249,246,0.96)] p-2 shadow-[0_20px_40px_rgba(112,150,130,0.18)] backdrop-blur-[18px]">
                 {navigationItems.filter((tab) => footerTabIds.has(tab.id)).map((tab) => {
                   const active = localActiveTab === tab.id;
 

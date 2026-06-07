@@ -29,8 +29,8 @@ export default async function AppPage({
   const pendingInviteCode = typeof params.invite === "string" ? params.invite.trim().toUpperCase() : null;
   const activeTab =
     typeof params.tab === "string" &&
-    ["lista", "historial", "sugerencias", "analisis", "resumen"].includes(params.tab)
-      ? (params.tab as "lista" | "historial" | "sugerencias" | "analisis" | "resumen")
+    ["lista", "historial", "sugerencias", "compartidas", "analisis", "resumen"].includes(params.tab)
+      ? (params.tab as "lista" | "historial" | "sugerencias" | "compartidas" | "analisis" | "resumen")
       : "lista";
   const supabaseConfigured = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   const data = await getShoppingDashboardData(selectedListId);
