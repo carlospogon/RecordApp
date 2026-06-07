@@ -407,7 +407,7 @@ function SharedListsPanel({
   selectedListId: string | null;
 }) {
   const sharedLists = lists
-    .filter((list) => list.accessRole === "editor")
+    .filter((list) => list.accessRole === "editor" && !list.completedAt)
     .sort((listA, listB) => new Date(listB.updatedAt).getTime() - new Date(listA.updatedAt).getTime());
 
   return (
