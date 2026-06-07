@@ -30,17 +30,17 @@ export async function POST(_: Request, context: RouteContext) {
   const { data: listRow } = await admin.from("shopping_lists").select("title").eq("id", id).maybeSingle();
 
   const completedAt = new Date().toISOString();
-  // RLS decides whether the authenticated user can update this list.
-  // Shared members will be able to finalize once the shared-list policies are active.
-  const { error } = await supabase
+  const { error, data: updatedRows } = await admin
     .from("shopping_lists")
     .update({
       completed_at: completedAt
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id")
+    .limit(1);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error || !updatedRows || updatedRows.length === 0) {
+    return NextResponse.json({ error: error?.message ?? "No se pudo finalizar la lista." }, { status: 500 });
   }
 
   const actorMetadata = (user.user_metadata ?? {}) as Record<string, unknown>;
