@@ -66,7 +66,7 @@ export default async function AppPage({
   const userInitials = getInitials(userDisplayName);
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden px-3 py-4 sm:px-6 sm:py-8">
+    <main className="relative min-h-screen overflow-x-hidden px-2 py-3 sm:px-6 sm:py-8">
       <div className="absolute inset-0">
         <Image
           src="/app-mindful-background.jpg"
@@ -78,11 +78,11 @@ export default async function AppPage({
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(250,249,246,0.18)_0%,rgba(250,249,246,0.28)_55%,rgba(250,249,246,0.86)_100%)]" />
       </div>
 
-      <div className="relative z-10 mx-auto max-w-5xl rounded-[34px] border border-white/55 bg-[rgba(250,249,246,0.78)] p-4 shadow-[0_28px_70px_rgba(74,97,80,0.10)] backdrop-blur-[20px] sm:p-6">
-          <header className="rounded-[26px] border border-white/55 bg-[rgba(255,255,255,0.74)] px-5 py-5 text-[var(--text)] backdrop-blur-[18px] sm:px-6">
+      <div className="relative z-10 mx-auto max-w-5xl rounded-[28px] border border-white/55 bg-[rgba(250,249,246,0.78)] p-3 shadow-[0_28px_70px_rgba(74,97,80,0.10)] backdrop-blur-[20px] sm:rounded-[34px] sm:p-6">
+          <header className="rounded-[22px] border border-white/55 bg-[rgba(255,255,255,0.74)] px-4 py-4 text-[var(--text)] backdrop-blur-[18px] sm:rounded-[26px] sm:px-6 sm:py-5">
             <div className="flex items-start gap-4">
               <div className="flex min-w-0 items-center gap-4">
-                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border border-white/70 bg-[linear-gradient(180deg,#f4efe6_0%,#e9e1d1_100%)] shadow-[0_12px_24px_rgba(74,97,80,0.10)]">
+                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border border-white/70 bg-[linear-gradient(180deg,#f4efe6_0%,#e9e1d1_100%)] shadow-[0_12px_24px_rgba(74,97,80,0.10)] sm:h-16 sm:w-16">
                   {userAvatarUrl ? (
                     <Image
                       src={userAvatarUrl}
@@ -99,8 +99,8 @@ export default async function AppPage({
                 </div>
                 <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">RecordApp</p>
-                  <h1 className="mt-2 truncate text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">{userDisplayName}</h1>
-                  <p className="mt-2 text-sm leading-6 text-[var(--muted)]">Tu compra, organizada.</p>
+                  <h1 className="mt-2 break-words text-[clamp(2rem,8vw,3rem)] font-semibold leading-[1.02] tracking-[-0.04em]">{userDisplayName}</h1>
+                  <p className="mt-2 text-sm leading-6 text-[var(--muted)] sm:text-base">Tu compra, organizada.</p>
                 </div>
               </div>
             </div>

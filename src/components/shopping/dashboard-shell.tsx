@@ -2345,7 +2345,7 @@ export function DashboardShell({
       ) : null}
 
       <aside
-        className={`fixed inset-y-0 right-0 z-40 flex w-[84vw] max-w-[18rem] flex-col border-l border-[rgba(112,150,130,0.18)] bg-[rgba(250,249,246,0.96)] p-4 text-[var(--text)] shadow-[0_24px_60px_rgba(92,112,100,0.18)] backdrop-blur-[18px] transition-transform duration-200 lg:sticky lg:top-5 lg:z-10 lg:h-[calc(100vh-4rem)] lg:w-auto lg:max-w-none lg:translate-x-0 lg:rounded-[28px] lg:border lg:border-[var(--border)] lg:bg-[rgba(255,255,255,0.82)] ${
+        className={`fixed inset-y-0 right-0 z-40 flex w-[88vw] max-w-[17rem] flex-col border-l border-[rgba(112,150,130,0.18)] bg-[rgba(250,249,246,0.96)] p-4 text-[var(--text)] shadow-[0_24px_60px_rgba(92,112,100,0.18)] backdrop-blur-[18px] transition-transform duration-200 lg:sticky lg:top-5 lg:z-10 lg:h-[calc(100vh-4rem)] lg:w-auto lg:max-w-none lg:translate-x-0 lg:rounded-[28px] lg:border lg:border-[var(--border)] lg:bg-[rgba(255,255,255,0.82)] ${
           sidebarOpen ? "translate-x-0" : "translate-x-[104%]"
         }`}
       >
@@ -2418,16 +2418,16 @@ export function DashboardShell({
       </aside>
 
       <div className="grid min-w-0 gap-5 pb-28">
-        <div className="flex items-center justify-between rounded-[22px] border border-[rgba(112,150,130,0.14)] bg-[rgba(255,255,255,0.72)] px-4 py-3 shadow-[0_14px_30px_rgba(112,150,130,0.08)] backdrop-blur-[12px] lg:hidden">
-          <div>
+        <div className="flex items-center justify-between gap-3 rounded-[22px] border border-[rgba(112,150,130,0.14)] bg-[rgba(255,255,255,0.72)] px-4 py-3 shadow-[0_14px_30px_rgba(112,150,130,0.08)] backdrop-blur-[12px] lg:hidden">
+          <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">Vista</p>
-            <p className="mt-1 text-sm font-semibold text-[var(--text)]">{navigationItems.find((tab) => tab.id === localActiveTab)?.label}</p>
+            <p className="mt-1 truncate text-sm font-semibold text-[var(--text)]">{navigationItems.find((tab) => tab.id === localActiveTab)?.label}</p>
           </div>
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
             aria-label="Abrir menú"
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-[rgba(112,150,130,0.16)] bg-[var(--surface-soft)] text-[var(--accent-strong)] transition hover:bg-[rgba(112,150,130,0.14)]"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[rgba(112,150,130,0.16)] bg-[var(--surface-soft)] text-[var(--accent-strong)] transition hover:bg-[rgba(112,150,130,0.14)]"
           >
             <span className="flex flex-col gap-1.5">
               <span className="block h-0.5 w-4 rounded-full bg-current" />
@@ -2588,7 +2588,7 @@ export function DashboardShell({
                 sidebarOpen ? "pointer-events-none opacity-0 blur-sm" : "pointer-events-none opacity-100"
               }`}
             >
-              <div className="pointer-events-auto grid w-[min(100%,38rem)] grid-cols-4 gap-2 rounded-[24px] border border-[rgba(112,150,130,0.14)] bg-[rgba(250,249,246,0.96)] p-2 shadow-[0_20px_40px_rgba(112,150,130,0.18)] backdrop-blur-[18px]">
+              <div className="pointer-events-auto grid w-[min(100%,40rem)] max-w-[calc(100vw-0.75rem)] grid-cols-2 gap-2 rounded-[24px] border border-[rgba(112,150,130,0.14)] bg-[rgba(250,249,246,0.96)] p-2 shadow-[0_20px_40px_rgba(112,150,130,0.18)] backdrop-blur-[18px] sm:grid-cols-4">
                 {navigationItems.filter((tab) => footerTabIds.has(tab.id)).map((tab) => {
                   const active = localActiveTab === tab.id;
 
@@ -2597,13 +2597,13 @@ export function DashboardShell({
                       key={tab.id}
                       type="button"
                       onClick={() => handleTabChange(tab.id)}
-                      className={`rounded-[18px] px-3 py-3 text-sm font-semibold transition ${
+                      className={`min-w-0 rounded-[18px] px-3 py-3 text-[13px] font-semibold leading-tight transition sm:text-sm ${
                         active
                           ? "bg-[var(--surface-strong)] text-white shadow-[0_12px_24px_rgba(112,150,130,0.18)]"
                           : "bg-[rgba(255,255,255,0.72)] text-[var(--accent-strong)] hover:bg-[var(--surface-soft)]"
                       }`}
                     >
-                      {tab.label}
+                      <span className="block truncate">{tab.label}</span>
                     </button>
                   );
                 })}
