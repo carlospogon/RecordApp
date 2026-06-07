@@ -2364,7 +2364,7 @@ export function DashboardShell({
           </button>
         </div>
 
-        <div className="mt-4 flex-1 overflow-y-auto pr-1">
+        <div className="mt-4 overflow-y-auto pr-1 lg:flex-1">
           <div className="grid gap-2">
             {navigationItems.filter((tab) => sidebarTabIds.has(tab.id)).map((tab) => {
               const active = localActiveTab === tab.id;

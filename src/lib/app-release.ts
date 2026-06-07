@@ -10,6 +10,20 @@ export const developerSignature = "A CPG Dynamics Product";
 
 export const appReleaseNotes: AppReleaseNote[] = [
   {
+    version: "1.10.2",
+    title: "Shared Navigation And Mobile Polish",
+    releaseDate: "2026-06-07",
+    summary:
+      "Hola. En esta version hemos ajustado la experiencia de navegacion para que las listas compartidas queden mejor separadas y la interfaz en movil se sienta mas ordenada. Tambien hemos corregido pequenos detalles visuales del menu lateral para reducir huecos innecesarios y evitar sensacion de desborde.",
+    highlights: [
+      "Las listas compartidas viven ahora en su propia pestana. Caso de uso: si otra persona te comparte una compra, la localizas desde Compartidas sin mezclarla con tus listas principales.",
+      "Las listas compartidas cerradas desaparecen del panel de Compartidas. Caso de uso: si cualquier participante finaliza la lista, deja de estorbar en la vista activa y pasa a Historial.",
+      "La barra inferior en movil reparte mejor el espacio entre pestanas. Caso de uso: en pantallas estrechas, etiquetas como Compartidas ya no se salen ni aplastan el resto de botones.",
+      "La cabecera y las tarjetas principales ajustan mejor textos largos en responsive. Caso de uso: si el nombre del usuario o los bloques son largos, la pantalla mantiene una lectura mas limpia.",
+      "El menu lateral movil reduce el hueco entre WhatsNew y Cerrar sesion. Caso de uso: al abrir el panel, la navegacion se percibe mas compacta y menos perdida."
+    ]
+  },
+  {
     version: "1.10.1",
     title: "Sharing And Voice Hotfix",
     releaseDate: "2026-06-06",
