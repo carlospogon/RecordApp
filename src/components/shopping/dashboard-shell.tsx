@@ -378,8 +378,8 @@ const navigationItems = [
 
 type NavigationTabId = (typeof navigationItems)[number]["id"];
 
-const sidebarTabIds = new Set(["analisis", "resumen"]);
-const footerTabIds = new Set(["lista", "historial", "sugerencias", "compartidas"]);
+const sidebarTabIds = new Set(["analisis", "compartidas", "historial", "resumen"]);
+const footerTabIds = new Set(["lista", "sugerencias"]);
 
 function mapRealtimeItem(row: Record<string, unknown>): ShoppingItem {
   return {
@@ -2588,7 +2588,7 @@ export function DashboardShell({
                 sidebarOpen ? "pointer-events-none opacity-0 blur-sm" : "pointer-events-none opacity-100"
               }`}
             >
-              <div className="pointer-events-auto grid w-[min(100%,40rem)] max-w-[calc(100vw-0.75rem)] grid-cols-2 gap-2 rounded-[24px] border border-[rgba(112,150,130,0.14)] bg-[rgba(250,249,246,0.96)] p-2 shadow-[0_20px_40px_rgba(112,150,130,0.18)] backdrop-blur-[18px] sm:grid-cols-4">
+              <div className="pointer-events-auto grid w-[min(100%,28rem)] max-w-[calc(100vw-0.75rem)] grid-cols-2 gap-2 rounded-[24px] border border-[rgba(112,150,130,0.14)] bg-[rgba(250,249,246,0.96)] p-2 shadow-[0_20px_40px_rgba(112,150,130,0.18)] backdrop-blur-[18px]">
                 {navigationItems.filter((tab) => footerTabIds.has(tab.id)).map((tab) => {
                   const active = localActiveTab === tab.id;
 
