@@ -1492,10 +1492,16 @@ export function DashboardShell({
     const supabase = createSupabaseBrowserClient();
     let syncTimeout: number | null = null;
     let intervalId: number | null = null;
+    let lastListSignature = "";
     let lastItemsSignature = "";
     let lastMembersSignature = "";
     let lastPendingInvitesSignature = "";
     let lastActivitySignature = "";
+
+    const buildListSignature = (listToSign: ShoppingList | null) =>
+      listToSign
+        ? `${listToSign.id}:${listToSign.updatedAt}:${listToSign.completedAt ?? ""}:${listToSign.itemCount ?? 0}:${listToSign.title}`
+        : "";
 
     const buildItemsSignature = (itemsToSign: ShoppingItem[]) =>
       itemsToSign
@@ -1518,11 +1524,54 @@ export function DashboardShell({
 
       syncTimeout = window.setTimeout(async () => {
         try {
-          const [itemsResponse, membersResponse, activityResponse] = await Promise.all([
+          const [itemsResponse, membersResponse, activityResponse, listResponse] = await Promise.all([
             fetch(`/api/lists/${localCurrentList.id}/items`, { cache: "no-store" }),
             fetch(`/api/lists/${localCurrentList.id}/members`, { cache: "no-store" }),
-            fetch(`/api/lists/${localCurrentList.id}/activity`, { cache: "no-store" })
+            fetch(`/api/lists/${localCurrentList.id}/activity`, { cache: "no-store" }),
+            supabase
+              .from("shopping_lists")
+              .select("id, user_id, space_id, shared, title, shopping_date, reminder_date, reminder_sent_at, created_at, updated_at, completed_at")
+              .eq("id", localCurrentList.id)
+              .maybeSingle()
           ]);
+
+          if (!listResponse.error && listResponse.data) {
+            const nextList: ShoppingList = {
+              id: listResponse.data.id,
+              ownerId: listResponse.data.user_id,
+              spaceId: listResponse.data.space_id ?? null,
+              title: listResponse.data.title,
+              shared: listResponse.data.shared ?? false,
+              accessRole: localCurrentList.accessRole ?? null,
+              shoppingDate: listResponse.data.shopping_date,
+              reminderDate: listResponse.data.reminder_date ?? null,
+              reminderSentAt: listResponse.data.reminder_sent_at ?? null,
+              createdAt: listResponse.data.created_at,
+              updatedAt: listResponse.data.updated_at,
+              completedAt: listResponse.data.completed_at ?? null,
+              itemCount: localCurrentList.itemCount ?? 0,
+              spaceName: localCurrentList.spaceName ?? null
+            };
+            const nextListSignature = buildListSignature(nextList);
+
+            if (nextListSignature !== lastListSignature) {
+              lastListSignature = nextListSignature;
+              setLocalLists((previous) => previous.map((list) => (list.id === nextList.id ? { ...list, ...nextList } : list)));
+
+              if (nextList.completedAt) {
+                setLocalCurrentList(null);
+                setLocalSelectedListId(null);
+                setLocalItems([]);
+                setLocalCurrentListMembers([]);
+                setLocalCurrentListPendingInvites([]);
+                setLocalScheduledListReminders((current) => current.filter((reminder) => reminder.listId !== nextList.id));
+                syncListUrl(null);
+                return;
+              }
+
+              setLocalCurrentList((previous) => (previous && previous.id === nextList.id ? { ...previous, ...nextList } : previous));
+            }
+          }
 
           if (itemsResponse.ok) {
             const itemsPayload = (await itemsResponse.json()) as { items?: ShoppingItem[] };
@@ -1662,6 +1711,18 @@ export function DashboardShell({
           schema: "public",
           table: "shopping_list_members",
           filter: `list_id=eq.${localCurrentList.id}`
+        },
+        () => {
+          scheduleSnapshotSync();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "shopping_lists",
+          filter: `id=eq.${localCurrentList.id}`
         },
         () => {
           scheduleSnapshotSync();
